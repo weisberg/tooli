@@ -18,6 +18,11 @@ class OutputMode(str, Enum):
     PLAIN = "plain"
 
 
+class ResponseFormat(str, Enum):
+    CONCISE = "concise"
+    DETAILED = "detailed"
+
+
 def is_tty() -> bool:
     """Return True if stdout is an interactive terminal.
 
@@ -67,3 +72,21 @@ def resolve_no_color(ctx: click.Context) -> bool:
         return True
     return bool(os.getenv("NO_COLOR"))
 
+
+def parse_response_format(value: str) -> ResponseFormat:
+    normalized = value.strip().lower()
+    for response_format in ResponseFormat:
+        if normalized == response_format.value:
+            return response_format
+    raise click.BadParameter(f"Invalid response format: {value!r}")
+
+
+def resolve_response_format(ctx: click.Context) -> ResponseFormat:
+    """Return response format from CLI override or default."""
+
+    explicit = ctx.meta.get("tooli_response_format")
+    if isinstance(explicit, ResponseFormat):
+        return explicit
+    if isinstance(explicit, str):
+        return parse_response_format(explicit)
+    return ResponseFormat.CONCISE
