@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from typing import TYPE_CHECKING
 
+import pytest
 from typer.testing import CliRunner
 
 from examples.note_indexer.app import app
@@ -29,6 +31,11 @@ def _write_note(path: Path, *, title: str, body: str = "", tags: str | None = No
     path.write_text(f"---\n{front_matter_text}\n---\n\n{body}\n", encoding="utf-8")
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 11),
+    reason="Typer positional argument handling requires Python 3.11+",
+    strict=False,
+)
 def test_note_indexer_ingest_and_find(tmp_path: Path) -> None:
     source = tmp_path / "notes"
     source.mkdir()

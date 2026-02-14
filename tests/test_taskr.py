@@ -111,7 +111,7 @@ def test_taskr_list_with_filters(tmp_path: Path) -> None:
     r2 = _run_json(runner, ["add", "High task", "--store", store, "--priority", "high"])
     _run_json(runner, ["done", r2["task"]["id"], "--store", store])
 
-    pending = _run_json(runner, ["list", "--store", store, "--status", "pending"])
+    pending = _run_json(runner, ["list", "--store", store, "--status-filter", "pending"])
     assert len(pending) == 1
 
     high = _run_json(runner, ["list", "--store", store, "--priority", "high"])

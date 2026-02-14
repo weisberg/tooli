@@ -115,7 +115,7 @@ def add(
 def list_(
     *,
     store: Annotated[str, Option(help="JSON store file path")] = DEFAULT_STORE,
-    status_filter: Annotated[str | None, Option("--status", help="Filter: pending or done")] = None,
+    status_filter: Annotated[str | None, Option(help="Filter: pending or done")] = None,
     priority: Annotated[str | None, Option(help="Filter by priority")] = None,
     sort_by: Annotated[str, Option(help="Sort by: created, priority, or title")] = "created",
 ) -> list[dict[str, Any]]:

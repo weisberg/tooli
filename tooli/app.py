@@ -271,15 +271,31 @@ class Tooli(typer.Typer):
 
                 secret_params.append(param_name)
                 annotation = raw_annotation
-                if get_origin(annotation) is Annotated:
-                    annotation_args = get_args(annotation)
+
+                # Unwrap Optional/Union wrappers to find the inner Annotated type.
+                import types
+                from typing import Union
+                inner = annotation
+                is_optional = False
+                origin = get_origin(inner)
+                if origin is Union or origin is getattr(types, "UnionType", None):
+                    inner_args = [a for a in get_args(inner) if a is not type(None)]
+                    is_optional = len(get_args(inner)) > len(inner_args)
+                    if inner_args:
+                        inner = inner_args[0]
+
+                if get_origin(inner) is Annotated:
+                    annotation_args = get_args(inner)
                     if annotation_args:
                         base_annotation = annotation_args[0]
                         metadata = annotation_args[1:]
                         if base_annotation is SecretInput:
-                            annotation = str if not metadata else Annotated[(str, *metadata)]
+                            resolved = str if not metadata else Annotated[(str, *metadata)]
                         else:
-                            annotation = Annotated[(str, *metadata)] if metadata else str
+                            resolved = Annotated[(str, *metadata)] if metadata else str
+                        annotation = Union[resolved, None] if is_optional else resolved  # type: ignore[assignment]  # noqa: UP007
+                    else:
+                        annotation = str
                 else:
                     annotation = str
 

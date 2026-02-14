@@ -34,15 +34,22 @@ class SecretInput(Generic[T]):
 
 def is_secret_input(annotation: Any) -> bool:
     """Return True when an annotation indicates a secret input."""
-    from typing import Annotated, get_args, get_origin
+    import types
+    from typing import Annotated, Union, get_args, get_origin
     from typing import Any as _AnyType
 
     if annotation is _AnyType:
         return False
 
-    if get_origin(annotation) is Annotated:
+    origin = get_origin(annotation)
+
+    if origin is Annotated:
         base, *_meta = get_args(annotation)
         return is_secret_input(base)
+
+    # Handle Optional[X] / Union[X, None] on Python 3.10+
+    if origin is Union or origin is getattr(types, "UnionType", None):
+        return any(is_secret_input(arg) for arg in get_args(annotation) if arg is not type(None))
 
     return getattr(annotation, "__tooli_secret_input__", False)
 
