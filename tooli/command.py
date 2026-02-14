@@ -25,9 +25,11 @@ from tooli.eval.recorder import InvocationRecorder
 from tooli.idempotency import get_record, set_record
 from tooli.security.policy import SecurityPolicy
 from tooli.security.sanitizer import sanitize_output
+from tooli.pagination import PaginationParams
 from tooli.telemetry import duration_ms as otel_duration_ms
 from tooli.telemetry import start_command_span
 from tooli.telemetry_pipeline import TelemetryPipeline
+from tooli.annotations import ToolAnnotation
 from tooli.output import (
     OutputMode,
     parse_output_mode,
@@ -167,6 +169,129 @@ def _is_idempotent_command(callback: Callable[..., Any] | None) -> bool:
 
 def _is_list_processing_command(callback: Callable[..., Any] | None) -> bool:
     return bool(getattr(callback, "__tooli_list_processing__", False))
+
+
+def _is_paginated_command(callback: Callable[..., Any] | None) -> bool:
+    return bool(getattr(callback, "__tooli_paginated__", False))
+
+
+def _extract_annotation_hints(callback: Callable[..., Any] | None) -> dict[str, Any]:
+    annotations = getattr(callback, "__tooli_annotations__", None)
+    if not isinstance(annotations, ToolAnnotation):
+        return {}
+
+    hints: dict[str, Any] = {}
+    if annotations.read_only:
+        hints["readOnlyHint"] = True
+    if annotations.idempotent:
+        hints["idempotentHint"] = True
+    if annotations.destructive:
+        hints["destructiveHint"] = True
+    if annotations.open_world:
+        hints["openWorldHint"] = True
+    return hints
+
+
+def _annotation_labels(callback: Callable[..., Any] | None) -> list[str]:
+    annotations = getattr(callback, "__tooli_annotations__", None)
+    if not isinstance(annotations, ToolAnnotation):
+        return []
+    labels: list[str] = []
+    if annotations.read_only:
+        labels.append("read-only")
+    if annotations.idempotent:
+        labels.append("idempotent")
+    if annotations.destructive:
+        labels.append("destructive")
+    if annotations.open_world:
+        labels.append("open-world")
+    return labels
+
+
+def _extract_pagination_flags(ctx: click.Context, *, paginated: bool) -> PaginationParams:
+    if not paginated:
+        return PaginationParams()
+
+    return PaginationParams.from_flags(
+        limit=ctx.meta.get("tooli_flag_limit"),
+        cursor=ctx.meta.get("tooli_flag_cursor"),
+        fields=ctx.meta.get("tooli_flag_fields"),
+        filter=ctx.meta.get("tooli_flag_filter"),
+        max_items=ctx.meta.get("tooli_flag_max_items"),
+        select=ctx.meta.get("tooli_flag_select"),
+    )
+
+
+def _apply_field_filter(value: Any, fields: list[str]) -> Any:
+    if not fields:
+        return value
+
+    if isinstance(value, dict):
+        return {name: value[name] for name in fields if name in value}
+
+    if isinstance(value, list):
+        return [_apply_field_filter(item, fields) for item in value]
+
+    return value
+
+
+def _apply_filter(value: list[Any], key: str, expected: str) -> list[Any]:
+    filtered: list[Any] = []
+    for item in value:
+        if not isinstance(item, dict):
+            filtered.append(item)
+            continue
+        if str(item.get(key)) == expected:
+            filtered.append(item)
+    return filtered
+
+
+def _apply_pagination(
+    value: Any,
+    params: PaginationParams,
+) -> tuple[Any, dict[str, Any]]:
+    if not isinstance(value, list):
+        return _apply_field_filter(value, params.fields), {}
+
+    items = value
+    filtered_items = items
+    filter_expr = params.filter_expr()
+    if filter_expr is not None:
+        filter_key, filter_value = filter_expr
+        filtered_items = _apply_filter(filtered_items, filter_key, filter_value)
+
+    if params.should_filter_fields():
+        filtered_items = _apply_field_filter(filtered_items, params.fields)
+
+    start = params.cursor
+    if start > len(filtered_items):
+        start = len(filtered_items)
+
+    limit = params.limit
+    max_items = params.max_items
+    if limit is None and max_items is None:
+        page = filtered_items[start:]
+        return page, {"truncated": False}
+
+    if limit is None:
+        page_size = max_items
+    else:
+        page_size = limit
+
+    if max_items is not None:
+        page_size = min(page_size, max_items)
+
+    end = start + page_size
+    page = filtered_items[start:end]
+    truncated = len(filtered_items) > end
+    meta: dict[str, Any] = {
+        "truncated": truncated,
+        "next_cursor": str(end) if truncated else None,
+        "truncation_message": (
+            f"Use --cursor {end} to fetch the next page." if truncated else None
+        ),
+    }
+    return page, meta
 
 
 def _strip_annotated(annotation: Any) -> Any:
@@ -314,7 +439,16 @@ def _normalize_system_exit(code: object | None) -> int:
     return 1
 
 
-def _build_envelope_meta(ctx: click.Context, *, app_version: str, duration_ms: int) -> EnvelopeMeta:
+def _build_envelope_meta(
+    ctx: click.Context,
+    *,
+    app_version: str,
+    duration_ms: int,
+    annotations: dict[str, Any] | None = None,
+    truncated: bool = False,
+    next_cursor: str | None = None,
+    truncation_message: str | None = None,
+) -> EnvelopeMeta:
     warnings: list[str] = []
     callback = getattr(ctx, "command", None)
     if callback is not None:
@@ -332,6 +466,10 @@ def _build_envelope_meta(ctx: click.Context, *, app_version: str, duration_ms: i
         duration_ms=duration_ms,
         dry_run=bool(getattr(getattr(ctx, "obj", None), "dry_run", False)),
         warnings=warnings,
+        annotations=annotations,
+        truncated=truncated,
+        next_cursor=next_cursor,
+        truncation_message=truncation_message,
     )
 
 
@@ -450,6 +588,52 @@ class TooliCommand(TyperCommand):
                     expose_value=False,
                     callback=_capture_tooli_flags,
                 ),
+            ]
+        )
+
+        if _is_paginated_command(kwargs.get("callback")):
+            params.extend(
+                [
+                    click.Option(
+                        ["--limit"],
+                        type=click.IntRange(min=1),
+                        help="Maximum number of items to return.",
+                        expose_value=False,
+                        callback=_capture_tooli_flags,
+                    ),
+                    click.Option(
+                        ["--cursor"],
+                        type=str,
+                        help="Cursor token for the next page.",
+                        expose_value=False,
+                        callback=_capture_tooli_flags,
+                    ),
+                    click.Option(
+                        ["--fields", "--select"],
+                        type=str,
+                        help="Comma-separated list of top-level output fields.",
+                        expose_value=False,
+                        callback=_capture_tooli_flags,
+                    ),
+                    click.Option(
+                        ["--filter"],
+                        type=str,
+                        help="Filter list items using key=value.",
+                        expose_value=False,
+                        callback=_capture_tooli_flags,
+                    ),
+                    click.Option(
+                        ["--max-items"],
+                        type=click.IntRange(min=1),
+                        help="Maximum number of list items to emit.",
+                        expose_value=False,
+                        callback=_capture_tooli_flags,
+                    ),
+                ]
+            )
+
+        params.extend(
+            [
                 click.Option(
                     ["--response-format"],
                     type=click.Choice([m.value for m in ResponseFormat], case_sensitive=False),
@@ -582,6 +766,32 @@ class TooliCommand(TyperCommand):
         if required_scopes:
             lines.append("auth=" + ",".join(required_scopes))
 
+        labels = _annotation_labels(callback)
+        if labels:
+            lines.append("annotations=" + ",".join(labels))
+
+        cost_hint = getattr(callback, "__tooli_cost_hint__", None) if callback is not None else None
+        if cost_hint:
+            lines.append("cost_hint=" + str(cost_hint))
+
+        human_in_the_loop = bool(getattr(callback, "__tooli_human_in_the_loop__", False)) if callback is not None else False
+        if human_in_the_loop:
+            lines.append("human_in_the_loop=true")
+
+        return "\n".join(lines)
+
+    def _append_behavior_help_line(self, lines: list[str], command: click.Command) -> None:
+        labels = _annotation_labels(getattr(command, "callback", None))
+        if not labels:
+            return
+        lines.append(f"Behavior: [{', '.join(labels)}]")
+
+    def get_help(self, ctx: click.Context) -> str:
+        if ctx.command is None:
+            return super().get_help(ctx)
+
+        lines = super().get_help(ctx).splitlines()
+        self._append_behavior_help_line(lines, ctx.command)
         return "\n".join(lines)
 
     def invoke(self, ctx: click.Context) -> Any:
@@ -613,21 +823,10 @@ class TooliCommand(TyperCommand):
 
             schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx), required_scopes=required_scopes)
             if self.callback:
-                annotations = getattr(self.callback, "__tooli_annotations__", None)
-                from tooli.annotations import ToolAnnotation
-
-                if isinstance(annotations, ToolAnnotation):
-                    hints = []
-                    if annotations.read_only:
-                        hints.append("read-only")
-                    if annotations.idempotent:
-                        hints.append("idempotent")
-                    if annotations.destructive:
-                        hints.append("destructive")
-                    if annotations.open_world:
-                        hints.append("open-world")
-                    schema.annotations = hints
-
+                schema.annotations = _extract_annotation_hints(self.callback)
+                cost_hint = getattr(self.callback, "__tooli_cost_hint__", None)
+                if cost_hint:
+                    schema.cost_hint = str(cost_hint)
                 schema.examples = getattr(self.callback, "__tooli_examples__", [])
 
             click.echo(_json_dumps(schema.model_dump(exclude_none=True)))
@@ -651,9 +850,12 @@ class TooliCommand(TyperCommand):
         list_processing = _is_list_processing_command(self.callback)
         print0_output = bool(ctx.meta.get("tooli_flag_print0", False))
         is_idempotent = _is_idempotent_command(self.callback)
+        paginated = _is_paginated_command(self.callback)
+        pagination_params = _extract_pagination_flags(ctx, paginated=paginated)
         start = time.perf_counter()
         timer_active = False
         ctx.meta.setdefault("tooli_secret_values", [])
+        annotation_hints = _extract_annotation_hints(self.callback)
 
         def _observation_args() -> dict[str, Any]:
             args = _collect_invocation_args(ctx)
@@ -907,6 +1109,11 @@ class TooliCommand(TyperCommand):
         result = redact_secret_values(result, ctx.meta.get("tooli_secret_values", []))
         if security_policy != SecurityPolicy.OFF:
             result = sanitize_output(result)
+
+        pagination_meta: dict[str, Any] = {}
+        if paginated:
+            result, pagination_meta = _apply_pagination(result, pagination_params)
+
         _emit_invocation(status="success", exit_code=0)
         _emit_telemetry(success=True, exit_code=0)
 
@@ -932,13 +1139,29 @@ class TooliCommand(TyperCommand):
             return result
 
         if mode == OutputMode.JSON:
-            meta = _build_envelope_meta(ctx, app_version=app_version or "0.0.0", duration_ms=duration_ms)
+            meta = _build_envelope_meta(
+                ctx,
+                app_version=app_version or "0.0.0",
+                duration_ms=duration_ms,
+                annotations=annotation_hints,
+                truncated=bool(pagination_meta.get("truncated", False)),
+                next_cursor=pagination_meta.get("next_cursor"),
+                truncation_message=pagination_meta.get("truncation_message"),
+            )
             env = Envelope(ok=True, result=result, meta=meta)
             click.echo(_json_dumps(env.model_dump()))
             return result
 
         if mode == OutputMode.JSONL:
-            meta = _build_envelope_meta(ctx, app_version=app_version or "0.0.0", duration_ms=duration_ms)
+            meta = _build_envelope_meta(
+                ctx,
+                app_version=app_version or "0.0.0",
+                duration_ms=duration_ms,
+                annotations=annotation_hints,
+                truncated=bool(pagination_meta.get("truncated", False)),
+                next_cursor=pagination_meta.get("next_cursor"),
+                truncation_message=pagination_meta.get("truncation_message"),
+            )
             if isinstance(result, list):
                 for item in result:
                     env = Envelope(ok=True, result=item, meta=meta)
@@ -962,12 +1185,14 @@ class TooliCommand(TyperCommand):
         *,
         security_policy: SecurityPolicy = SecurityPolicy.OFF,
     ) -> None:
+        annotations = _extract_annotation_hints(getattr(ctx.command, "callback", None))
         secret_values = ctx.meta.get("tooli_secret_values", [])
         if mode in (OutputMode.JSON, OutputMode.JSONL, OutputMode.AUTO) and not click.get_text_stream("stdout").isatty():
             meta = _build_envelope_meta(
                 ctx,
                 app_version=app_version,
                 duration_ms=int((time.perf_counter() - start) * 1000),
+                annotations=annotations,
             )
             env = Envelope(ok=False, result=None, meta=meta)
             out = env.model_dump()

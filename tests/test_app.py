@@ -10,6 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 from tooli import Argument, Option, Tooli
+from tooli.annotations import Destructive, Idempotent, ReadOnly
 
 
 def test_tooli_creates_basic_app() -> None:
@@ -435,6 +436,167 @@ def test_click_usage_error_maps_to_input_exit_code() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["need-arg"])
     assert result.exit_code == 2
+
+
+def test_help_output_includes_behavior_line() -> None:
+    """--help output should include a Behavior summary when annotations are present."""
+    app = Tooli(name="test-app")
+
+    @app.command(annotations=ReadOnly | Idempotent)
+    def info() -> None:
+        """Report read-only status."""
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["info", "--help", "--text"])
+    assert result.exit_code == 0
+    assert "Behavior: [read-only, idempotent]" in result.output
+
+
+def test_help_agent_output_includes_annotations() -> None:
+    """--help-agent should include annotations and governance metadata."""
+    app = Tooli(name="test-app")
+
+    @app.command(annotations=Destructive, cost_hint="medium", human_in_the_loop=True)
+    def remove_item() -> None:
+        """Remove one item."""
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["remove-item", "--help-agent", "--text"])
+    assert result.exit_code == 0
+    assert "annotations=destructive" in result.output
+    assert "cost_hint=medium" in result.output
+    assert "human_in_the_loop=true" in result.output
+
+
+def test_schema_output_includes_annotations_object() -> None:
+    """--schema should expose MCP-style annotations."""
+    app = Tooli(name="test-app")
+
+    @app.command(annotations=ReadOnly | Destructive, cost_hint="low")
+    def items() -> list[dict[str, str]]:
+        return []
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["items", "--schema", "--text"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["annotations"] == {"readOnlyHint": True, "destructiveHint": True}
+    assert payload["cost_hint"] == "low"
+    assert payload["annotations"]["readOnlyHint"] is True
+
+
+def test_json_envelope_meta_includes_annotations() -> None:
+    """JSON envelope meta should include annotation hints."""
+    app = Tooli(name="test-app")
+
+    @app.command(annotations=Idempotent)
+    def stats() -> list[int]:
+        return [1, 2, 3]
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["stats", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["meta"]["annotations"] == {"idempotentHint": True}
+
+
+def test_paginated_list_returns_cursor_and_truncation() -> None:
+    """Paginated commands should include pagination metadata."""
+    app = Tooli(name="test-app")
+
+    @app.command(paginated=True)
+    def numbers() -> list[int]:
+        return list(range(10))
+
+    runner = CliRunner()
+    first = runner.invoke(app, ["numbers", "--json", "--limit", "3"])
+    assert first.exit_code == 0
+    payload = json.loads(first.output)
+    assert payload["result"] == [0, 1, 2]
+    assert payload["meta"]["truncated"] is True
+    assert payload["meta"]["next_cursor"] == "3"
+    assert "Use --cursor 3" in payload["meta"]["truncation_message"]
+
+
+def test_paginated_cursor_continues_result_set() -> None:
+    """Pagination with cursor should continue from the prior page."""
+    app = Tooli(name="test-app")
+
+    @app.command(paginated=True)
+    def numbers() -> list[int]:
+        return list(range(10))
+
+    runner = CliRunner()
+    first = runner.invoke(app, ["numbers", "--json", "--limit", "3"])
+    cursor = json.loads(first.output)["meta"]["next_cursor"]
+
+    second = runner.invoke(app, ["numbers", "--json", "--limit", "3", "--cursor", cursor])
+    assert second.exit_code == 0
+    payload = json.loads(second.output)
+    assert payload["result"] == [3, 4, 5]
+
+
+def test_paginated_fields_filtering() -> None:
+    """--fields and --select should filter top-level output keys."""
+    app = Tooli(name="test-app")
+
+    @app.command(paginated=True)
+    def records() -> list[dict[str, str]]:
+        return [
+            {"id": "1", "name": "alpha", "secret": "s1"},
+            {"id": "2", "name": "beta", "secret": "s2"},
+        ]
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["records", "--json", "--fields", "id,name"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["result"] == [
+        {"id": "1", "name": "alpha"},
+        {"id": "2", "name": "beta"},
+    ]
+
+
+def test_paginated_filter_flag() -> None:
+    """--filter should reduce list output before truncation."""
+    app = Tooli(name="test-app")
+
+    @app.command(paginated=True)
+    def records() -> list[dict[str, str]]:
+        return [
+            {"kind": "a", "name": "alpha"},
+            {"kind": "b", "name": "bravo"},
+            {"kind": "a", "name": "adam"},
+        ]
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["records", "--json", "--filter", "kind=a"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["result"] == [
+        {"kind": "a", "name": "alpha"},
+        {"kind": "a", "name": "adam"},
+    ]
+
+
+def test_paginated_max_items_truncates() -> None:
+    """--max-items should cap the result set and set truncation metadata."""
+    app = Tooli(name="test-app")
+
+    @app.command(paginated=True)
+    def numbers() -> list[int]:
+        return list(range(10))
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["numbers", "--json", "--max-items", "4"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["result"] == [0, 1, 2, 3]
+    assert payload["meta"]["truncated"] is True
+    assert payload["meta"]["next_cursor"] == "4"
+    assert "Use --cursor 4" in payload["meta"]["truncation_message"]
 
 
 def test_imports() -> None:

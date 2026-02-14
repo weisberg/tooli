@@ -42,7 +42,7 @@ def generate_skill_md(app: Tooli) -> str:
         annotations = getattr(cmd.callback, "__tooli_annotations__", None)
         if annotations:
             from tooli.annotations import ToolAnnotation
-
+            hints: list[str] = []
             if isinstance(annotations, ToolAnnotation):
                 hints = []
                 if annotations.read_only:
@@ -55,6 +55,18 @@ def generate_skill_md(app: Tooli) -> str:
                     hints.append("open-world")
                 if hints:
                     lines.append(f"**Behavior**: `[{', '.join(hints)}]`")
+
+            lines.append("#### Governance")
+            lines.append(f"**Annotations**: `{', '.join(hints) if hints else '[]'}`")
+            cost_hint = getattr(cmd.callback, "__tooli_cost_hint__", None)
+            if cost_hint is not None:
+                lines.append(f"**Cost Hint**: `{cost_hint}`")
+            else:
+                lines.append("**Cost Hint**: `unspecified`")
+
+            human_in_the_loop = bool(getattr(cmd.callback, "__tooli_human_in_the_loop__", False))
+            lines.append(f"**Human In The Loop**: `{'true' if human_in_the_loop else 'false'}`")
+            lines.append("")
 
         required_scopes = getattr(cmd.callback, "__tooli_auth__", [])
         if required_scopes:

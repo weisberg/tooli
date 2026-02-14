@@ -14,9 +14,10 @@ class ToolSchema(BaseModel):
     name: str
     description: str
     input_schema: dict[str, Any]
+    cost_hint: str | None = None
     version: str | None = None
     output_schema: dict[str, Any] | None = None
-    annotations: list[str] = Field(default_factory=list)
+    annotations: dict[str, Any] = Field(default_factory=dict)
     auth: list[str] = Field(default_factory=list)
     examples: list[dict[str, Any]] = Field(default_factory=list)
     deprecated: bool = False
