@@ -5,13 +5,8 @@ from __future__ import annotations
 import importlib.util
 from types import ModuleType
 from pathlib import Path
-from typing import TYPE_CHECKING
-
 from tooli.providers.base import Provider
 from tooli.transforms import ToolDef
-
-if TYPE_CHECKING:
-    from tooli.app import Tooli
 
 
 class FileSystemProvider(Provider):
@@ -67,13 +62,13 @@ class FileSystemProvider(Provider):
                 continue
 
             # Look for Tooli command callbacks in the module.
+            from tooli.command_meta import CommandMeta
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                cmd_meta = getattr(attr, "__tooli_meta__", None)
-                if not callable(attr) or cmd_meta is None:
+                if not callable(attr) or attr is module:
                     continue
-
-                if attr is module:
+                cmd_meta = getattr(attr, "__tooli_meta__", None)
+                if not isinstance(cmd_meta, CommandMeta):
                     continue
 
                 name = getattr(attr, "__name__", attr_name)
@@ -82,7 +77,7 @@ class FileSystemProvider(Provider):
                         name=name,
                         callback=attr,
                         help=getattr(attr, "__doc__", None) or "",
-                        hidden=getattr(cmd_meta, "hidden", False),
+                        hidden=cmd_meta.hidden,
                         tags=[],
                     )
                 )
