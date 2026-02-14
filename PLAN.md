@@ -327,20 +327,20 @@ Generate MCP-compatible tool definitions from registered commands.
 
 ---
 
-### Issue #17: MCP stdio server mode
+### Issue #17: MCP stdio server mode [DONE]
 
 **Labels:** `phase-2`, `mcp`
 
 Serve a Tooli app as an MCP server over stdio transport.
 
 **Acceptance criteria:**
-- [ ] `tooli/mcp/server.py`: MCP server implementation using `fastmcp` (optional dependency)
-- [ ] Built-in `mcp serve --transport stdio` subcommand
-- [ ] Each Tooli command becomes an MCP tool; invocation calls the command function directly (not via subprocess)
-- [ ] Return values are serialized as MCP `structuredContent`
-- [ ] `ToolError` exceptions become MCP error responses with `isError: true`
-- [ ] Strict stdout discipline: zero logging to stdout during MCP mode
-- [ ] Tests: spin up server, send MCP tool call, verify response structure
+- [x] `tooli/mcp/server.py`: MCP server implementation using `fastmcp` (optional dependency)
+- [x] Built-in `mcp serve --transport stdio` subcommand
+- [x] Each Tooli command becomes an MCP tool; invocation calls the command function directly (not via subprocess)
+- [x] Return values are serialized as MCP `structuredContent`
+- [x] `ToolError` exceptions become MCP error responses with `isError: true`
+- [x] Strict stdout discipline: zero logging to stdout during MCP mode
+- [x] Tests: spin up server, send MCP tool call, verify response structure
 
 **Depends on:** #16
 
