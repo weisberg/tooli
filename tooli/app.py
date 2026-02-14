@@ -11,6 +11,7 @@ import typer
 from tooli.command import TooliCommand
 from tooli.eval.recorder import build_invocation_recorder
 from tooli.input import SecretInput, is_secret_input
+from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
 from tooli.versioning import compare_versions
 
@@ -35,6 +36,7 @@ class Tooli(typer.Typer):
         telemetry_endpoint: str | None = None,
         telemetry_storage_dir: Path | None = None,
         telemetry_retention_days: int = 30,
+        security_policy: str | None = None,
         record: bool | str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -46,6 +48,7 @@ class Tooli(typer.Typer):
         self.mcp_transport = mcp_transport
         self.skill_auto_generate = skill_auto_generate
         self.permissions = permissions or {}
+        self.security_policy = resolve_security_policy(security_policy)
         self.telemetry = telemetry
         self.telemetry_endpoint = telemetry_endpoint
         self.telemetry_storage_dir = telemetry_storage_dir
@@ -103,7 +106,7 @@ class Tooli(typer.Typer):
         eval_app = typer.Typer(name="eval", help="Evaluation tooling")
         self.add_typer(eval_app)
 
-        @eval_app.command(name="analyze")
+        @eval_app.command(name="analyze", cls=TooliCommand)
         def eval_analyze(log_path: str | None = None) -> dict[str, Any]:
             """Analyze invocation logs produced by Tooli(record=True) or TOOLI_RECORD."""
             from tooli.eval.analyzer import analyze_invocations
@@ -196,6 +199,7 @@ class Tooli(typer.Typer):
             setattr(func, "__tooli_auth__", auth or [])
             setattr(func, "__tooli_telemetry_pipeline__", self.telemetry_pipeline)
             setattr(func, "__tooli_invocation_recorder__", self.invocation_recorder)
+            setattr(func, "__tooli_security_policy__", self.security_policy)
             setattr(func, "__tooli_version__", None if version is None else str(version))
             setattr(func, "__tooli_deprecated__", deprecated)
             setattr(func, "__tooli_deprecated_message__", deprecated_message)

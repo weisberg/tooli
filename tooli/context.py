@@ -20,19 +20,20 @@ class ToolContext:
     quiet: bool = False
     verbose: int = 0
     dry_run: bool = False
+    force: bool = False
     yes: bool = False
     timeout: float | None = None
     response_format: str = "concise"
     extra: dict[str, Any] = field(default_factory=dict)
 
-    def confirm(self, message: str, *, default: bool = False) -> bool:
+    def confirm(self, message: str, *, default: bool = False, allow_yes_override: bool = True) -> bool:
         """Request a confirmation in interactive mode.
 
         If --yes was provided, confirmation is automatically accepted.
         When stdin is not a TTY, read from the platform's tty/console device.
         """
 
-        if self.yes:
+        if allow_yes_override and self.yes:
             return True
 
         if click.get_text_stream("stdin").isatty():
