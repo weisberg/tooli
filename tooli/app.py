@@ -105,6 +105,37 @@ class Tooli(typer.Typer):
             from tooli.mcp.server import serve_mcp
             serve_mcp(self, transport=transport, host=host, port=port)
 
+        # Docs group
+        docs_app = typer.Typer(name="docs", help="Documentation generation", hidden=True)
+        self.add_typer(docs_app)
+
+        @docs_app.command(name="llms")
+        def docs_llms() -> None:
+            """Emit llms.txt and llms-full.txt."""
+            from tooli.docs.llms_txt import generate_llms_full_txt, generate_llms_txt
+
+            with open("llms.txt", "w") as f:
+                f.write(generate_llms_txt(self))
+            with open("llms-full.txt", "w") as f:
+                f.write(generate_llms_full_txt(self))
+
+            import click
+            click.echo("Generated llms.txt and llms-full.txt")
+
+        @docs_app.command(name="man")
+        def docs_man() -> None:
+            """Generate a Unix man page."""
+            from tooli.docs.man import generate_man_page
+
+            content = generate_man_page(self)
+            name = self.info.name or "tooli-app"
+            filename = f"{name}.1"
+            with open(filename, "w") as f:
+                f.write(content)
+
+            import click
+            click.echo(f"Generated {filename}")
+
         # Eval utilities
         eval_app = typer.Typer(name="eval", help="Evaluation tooling")
         self.add_typer(eval_app)

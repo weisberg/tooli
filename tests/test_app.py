@@ -419,13 +419,13 @@ def test_internal_error_with_verbose() -> None:
 
 def test_error_category_exit_codes() -> None:
     """Each ToolError category should map to the expected exit code."""
-    from tooli.errors import AuthError, InternalError, InputError, RuntimeError, StateError
+    from tooli.errors import AuthError, InternalError, InputError, ToolRuntimeError, StateError
 
     categories = [
         ("input", InputError, 2),
         ("auth", AuthError, 30),
         ("state", StateError, 10),
-        ("runtime", RuntimeError, 70),
+        ("runtime", ToolRuntimeError, 70),
         ("internal", InternalError, 70),
     ]
 

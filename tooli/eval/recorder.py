@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_EVAL_DIR = Path.home() / ".config" / "tooli" / "eval"
@@ -49,6 +52,10 @@ def _to_timestamp(value: float) -> str:
 def _to_serializable(value: Any) -> Any:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
+    if isinstance(value, dict):
+        return {str(k): _to_serializable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_to_serializable(item) for item in value]
     return str(value)
 
 
@@ -116,7 +123,8 @@ class InvocationRecorder:
             with self.path.open("a", encoding="utf-8") as file:
                 file.write(json.dumps(payload.to_dict(), sort_keys=True))
                 file.write("\n")
-        except OSError:
+        except OSError as exc:
+            logger.warning("Failed to write invocation record to %s: %s", self.path, exc)
             return
 
 

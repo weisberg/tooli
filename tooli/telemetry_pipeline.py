@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import datetime
+import fcntl
 import json
 import os
+import random
 import time
 import urllib.error
 import urllib.request
@@ -148,10 +150,16 @@ class TelemetryPipeline:
             path = self.events_file
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as file:
-                file.write(json.dumps(record.to_dict(), sort_keys=True))
-                file.write("\n")
+                fcntl.flock(file, fcntl.LOCK_EX)
+                try:
+                    file.write(json.dumps(record.to_dict(), sort_keys=True))
+                    file.write("\n")
+                finally:
+                    fcntl.flock(file, fcntl.LOCK_UN)
 
-            self._prune_retained_events(path)
+            # Prune ~1% of the time to avoid O(n) overhead on every write.
+            if random.random() < 0.01:
+                self._prune_retained_events(path)
         except OSError:
             return
 
@@ -160,32 +168,32 @@ class TelemetryPipeline:
             return
         cutoff = self.clock() - (self.retention_days * 24 * 60 * 60)
         try:
-            lines = path.read_text(encoding="utf-8").splitlines()
+            with path.open("r+", encoding="utf-8") as file:
+                fcntl.flock(file, fcntl.LOCK_EX)
+                try:
+                    lines = file.read().splitlines()
+                    kept_lines: list[str] = []
+                    for line in lines:
+                        try:
+                            payload = json.loads(line)
+                            recorded_at = payload.get("recorded_at")
+                            if _parse_recorded_at(recorded_at) < cutoff:
+                                continue
+                        except (json.JSONDecodeError, ValueError, TypeError):
+                            # Keep malformed lines to avoid accidental data loss.
+                            kept_lines.append(line)
+                            continue
+                        kept_lines.append(line)
+
+                    if len(kept_lines) != len(lines):
+                        file.seek(0)
+                        file.truncate()
+                        if kept_lines:
+                            file.write("\n".join(kept_lines) + "\n")
+                finally:
+                    fcntl.flock(file, fcntl.LOCK_UN)
         except OSError:
             return
-
-        kept_lines: list[str] = []
-        for line in lines:
-            try:
-                payload = json.loads(line)
-                recorded_at = payload.get("recorded_at")
-                if _parse_recorded_at(recorded_at) < cutoff:
-                    continue
-            except (json.JSONDecodeError, ValueError, TypeError):
-                # Keep malformed lines to avoid accidental data loss.
-                kept_lines.append(line)
-                continue
-
-            kept_lines.append(line)
-
-        if len(kept_lines) != len(lines):
-            try:
-                if kept_lines:
-                    path.write_text("\n".join(kept_lines) + "\n", encoding="utf-8")
-                else:
-                    path.unlink()
-            except OSError:
-                return
 
     def _send_remote(self, record: TelemetryRecord) -> None:
         payload = json.dumps(record.to_dict(), ensure_ascii=False).encode("utf-8")

@@ -79,13 +79,13 @@ def _open_tty_prompt_stream() -> io.TextIOBase | None:
 
     path = _prompt_device_path()
     try:
-        return open(path, "r+", encoding="utf-8")
+        return _open(path, "r+", encoding="utf-8")
     except OSError:
         return None
 
 
-# Exported for test monkeypatching.
-open = builtins.open
+# Module-level alias used by _open_tty_prompt_stream so tests can monkeypatch it.
+_open = builtins.open
 
 
 def _read_confirmation_response(message: str, stream: io.TextIOBase, *, default: bool) -> bool:

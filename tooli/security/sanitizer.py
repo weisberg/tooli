@@ -7,7 +7,7 @@ from typing import Any
 
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
-INJECTION_PATTERN = re.compile(r"\$\([^)]*\)|`[^`]+`")
+INJECTION_PATTERN = re.compile(r"\$\([^)]*\)|\$\{[^}]*\}|`[^`]+`|>\([^)]*\)|<\([^)]*\)")
 
 
 def sanitize_text(value: str) -> str:
@@ -29,5 +29,7 @@ def sanitize_output(value: Any) -> Any:
     if isinstance(value, tuple):
         return tuple(sanitize_output(item) for item in value)
     if isinstance(value, set):
-        return tuple(sanitize_output(item) for item in sorted(value, key=repr))
+        return {sanitize_output(item) for item in value}
+    if isinstance(value, (bytes, bytearray)):
+        return sanitize_output(value.decode("utf-8", errors="replace"))
     return value

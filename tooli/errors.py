@@ -122,7 +122,7 @@ class StateError(ToolError):
         code: str = "E3000",
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
-        exit_code: int = 10,
+        exit_code: ExitCode | int = ExitCode.STATE_ERROR,
     ) -> None:
         super().__init__(
             message,
@@ -134,7 +134,7 @@ class StateError(ToolError):
         )
 
 
-class RuntimeError(ToolError):
+class ToolRuntimeError(ToolError):
     """E4xxx: External dependency or runtime failures."""
 
     def __init__(
