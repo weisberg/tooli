@@ -61,6 +61,10 @@ def _find_tooli_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> click.
     for value in args:
         if isinstance(value, click.Context):
             return value
+
+    context = click.get_current_context(silent=True)
+    if isinstance(context, click.Context):
+        return context
     return None
 
 
