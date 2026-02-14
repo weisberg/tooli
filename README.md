@@ -119,9 +119,16 @@ $ file-tools find-files --schema
 
 ```bash
 $ file-tools mcp serve --transport stdio
+$ file-tools mcp serve --transport http --host 127.0.0.1 --port 8080
 ```
 
 Add to your MCP client config and every command becomes a tool.
+
+For SSE-enabled clients, use:
+
+```bash
+$ file-tools mcp serve --transport sse --host 127.0.0.1 --port 8080
+```
 
 ## Structured Errors
 
