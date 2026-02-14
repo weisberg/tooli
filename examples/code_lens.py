@@ -1,13 +1,26 @@
 """Token-efficient AST outline extractor for Tooli.
 
-This example exists to show how agents can ask for high-signal structure instead of
-large source dumps. It is intended to be used before deeper file edits, and it is
-safe to run in non-interactive pipelines because all output is structured data.
+`code-lens` is designed for agents that need structure fast, not implementation
+noise. It scans a single Python file and returns a compact symbol outline that can
+fit comfortably into a narrow context window.
 
-Use cases:
-- quickly map function/class names before opening a large file,
-- feed outlines into downstream tools (summaries, dependency tracing, etc.),
-- preserve context budget by avoiding function bodies and comments by default.
+Agent pain point solved:
+- opening full source files in large projects is expensive and distracts from
+  intent,
+- output becomes inconsistent when regexes accidentally grab extra lines,
+- downstream prompts fail when symbols are embedded in prose.
+
+Communication contract:
+- response is deterministic JSON-ready data,
+- output can be filtered by `--output`, including `json`/`jsonl` modes,
+- command examples are embedded for auto-discovery in `--help` and MCP metadata.
+
+Example usage:
+- `python code_lens.py outline main.py`
+- `python code_lens.py outline main.py --detail detailed`
+- `python code_lens.py outline main.py --max-depth 2`
+- `python code_lens.py outline main.py --exclude-private`
+- `python code_lens.py outline main.py --output jsonl`
 """
 
 from __future__ import annotations
@@ -38,6 +51,34 @@ def _normalize_detail(value: str) -> str:
     return normalized
 
 
+def _validate_depth(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if value < 1:
+        raise InputError(
+            message="max-depth must be at least 1.",
+            code="E1014",
+            suggestion=Suggestion(
+                action="increase max-depth",
+                fix="Set --max-depth to a positive integer.",
+                example="python code_lens.py outline main.py --max-depth 4",
+            ),
+            details={"max_depth": value},
+        )
+    if value > 20:
+        raise InputError(
+            message="max-depth is capped for safety at 20.",
+            code="E1015",
+            suggestion=Suggestion(
+                action="reduce max-depth",
+                fix="Use a smaller --max-depth unless deep nesting is truly required.",
+                example="python code_lens.py outline main.py --max-depth 8",
+            ),
+            details={"max_depth": value},
+        )
+    return value
+
+
 def _node_signature(node: ast.AST) -> str | None:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
         prefix = "async " if isinstance(node, ast.AsyncFunctionDef) else ""
@@ -52,46 +93,60 @@ def _node_signature(node: ast.AST) -> str | None:
 
 def _collect_outlines(
     nodes: list[ast.stmt],
+    *,
     detail: str,
+    include_private: bool,
+    max_depth: int | None,
     prefix: str | None = None,
+    depth: int = 0,
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-
     for node in nodes:
-        if isinstance(node, ast.AsyncFunctionDef | ast.FunctionDef | ast.ClassDef):
-            kind = "class" if isinstance(node, ast.ClassDef) else "function"
-            if detail == "concise":
-                items.append(
-                    {
-                        "kind": kind,
-                        "name": node.name,
-                        "qualified_name": ".".join([part for part in [prefix, node.name] if part]),
-                        "line": node.lineno,
-                    }
-                )
-            else:
-                signature = _node_signature(node)
-                docstring = ast.get_docstring(node)
-                payload: dict[str, Any] = {
+        if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef)):
+            continue
+
+        if not include_private and node.name.startswith("_"):
+            continue
+
+        if max_depth is not None and depth >= max_depth:
+            continue
+
+        kind = "class" if isinstance(node, ast.ClassDef) else "function"
+        qualified_name = ".".join([part for part in (prefix, node.name) if part])
+
+        if detail == "concise":
+            items.append(
+                {
                     "kind": kind,
                     "name": node.name,
-                    "qualified_name": ".".join([part for part in [prefix, node.name] if part]),
-                    "signature": signature,
+                    "qualified_name": qualified_name,
                     "line": node.lineno,
-                    "docstring": docstring,
                 }
-                if isinstance(node, ast.ClassDef):
-                    payload["decorator_count"] = len(node.decorator_list)
-                items.append(payload)
-
+            )
+        else:
+            payload: dict[str, Any] = {
+                "kind": kind,
+                "name": node.name,
+                "qualified_name": qualified_name,
+                "signature": _node_signature(node),
+                "line": node.lineno,
+                "docstring": ast.get_docstring(node),
+            }
             if isinstance(node, ast.ClassDef):
-                items.extend(
-                    _collect_outlines(
-                        node.body,
-                        detail=detail,
-                        prefix=".".join([part for part in [prefix, node.name] if part]),
-                    )
+                payload["decorator_count"] = len(node.decorator_list)
+            items.append(payload)
+
+        if isinstance(node, ast.ClassDef):
+            items.extend(
+                _collect_outlines(
+                    node.body,
+                    detail=detail,
+                    include_private=include_private,
+                    max_depth=max_depth,
+                    prefix=qualified_name,
+                    depth=depth + 1,
                 )
+            )
 
     return items
 
@@ -102,31 +157,56 @@ def _collect_outlines(
     paginated=True,
     cost_hint="low",
     examples=[
-        {"args": ["outline", "path/to/main.py"], "description": "Get concise symbols only"},
         {
-            "args": ["outline", "path/to/main.py", "--detail", "detailed"],
-            "description": "Get signatures + docstrings for richer follow-up prompts",
+            "args": ["outline", "path/to/main.py"],
+            "description": "Concise symbol list for context-friendly planning",
+        },
+        {
+            "args": [
+                "outline",
+                "path/to/main.py",
+                "--detail",
+                "detailed",
+                "--max-depth",
+                "3",
+            ],
+            "description": "Detailed signatures for dependency tracing",
         },
     ],
     error_codes={
         "E1000": "Bad file path provided.",
         "E1002": "File could not be read.",
         "E1003": "Python syntax invalid for AST parsing.",
+        "E1014": "max-depth below allowed minimum.",
+        "E1015": "max-depth exceeds safe limit.",
     },
 )
 def outline(
     file_path: Annotated[str, Argument(help="Python file to analyze")],
     detail: Annotated[str, Option(help="Output detail: concise or detailed")] = "concise",
+    max_depth: Annotated[int | None, Option(help="Maximum symbol nesting depth to follow")] = None,
+    exclude_private: Annotated[
+        bool,
+        Option("--exclude-private", "--no-exclude-private", help="Skip _private symbols"),
+    ] = True,
 ) -> list[dict[str, Any]]:
-    """Return a compact structural outline for a Python file.
+    """Return a compact structure-only symbol outline.
 
     Agent guidance:
-    - Use `--detail concise` (default) to minimize tokens when you need only symbol names.
-    - Use `--detail detailed` when a downstream step needs signatures and docstrings.
-    - Use pagination flags (`--limit`, `--cursor`) when this file has deep nesting.
+    - use `--detail concise` (default) when you only need names for routing,
+    - use `--detail detailed` for automated interface checks,
+    - add `--max-depth` to keep recursive class trees bounded,
+    - this command intentionally omits function bodies to protect context budget.
+
+    Output contract:
+    - each symbol includes `kind`, `name`, `qualified_name`, and `line`,
+    - detailed mode adds `signature` and optional `docstring`,
+    - all output is stable and machine-friendly for `--output json`.
     """
 
     normalized_detail = _normalize_detail(detail)
+    include_private = not exclude_private
+    validated_depth = _validate_depth(max_depth)
 
     if not os.path.isfile(file_path):
         raise InputError(
@@ -154,6 +234,18 @@ def outline(
             details={"path": str(file_path)},
         ) from exc
 
+    if not source_text.strip():
+        raise InputError(
+            message=f"Source file is empty: {file_path}",
+            code="E1016",
+            suggestion=Suggestion(
+                action="check source file",
+                fix="Provide a file with Python code to analyze.",
+                example="python code_lens.py outline main.py",
+            ),
+            details={"path": str(file_path)},
+        )
+
     try:
         tree = ast.parse(source_text)
     except SyntaxError as exc:
@@ -168,7 +260,12 @@ def outline(
             details={"path": str(file_path)},
         ) from exc
 
-    return _collect_outlines(tree.body, detail=normalized_detail)
+    return _collect_outlines(
+        tree.body,
+        detail=normalized_detail,
+        include_private=include_private,
+        max_depth=validated_depth,
+    )
 
 
 if __name__ == "__main__":
