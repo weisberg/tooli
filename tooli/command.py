@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import signal
 import traceback
@@ -16,6 +17,8 @@ from tooli.context import ToolContext
 from tooli.envelope import Envelope, EnvelopeMeta
 from tooli.errors import InputError, InternalError, RuntimeError, ToolError
 from tooli.exit_codes import ExitCode
+from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
+from tooli.telemetry_pipeline import TelemetryPipeline
 from tooli.output import (
     OutputMode,
     parse_output_mode,
@@ -65,6 +68,42 @@ def _capture_tooli_flags(ctx: click.Context, param: click.Parameter, value: Any)
     return value
 
 
+def _detect_secret_parameter_names(callback: Callable[..., Any] | None) -> list[str]:
+    """Return callback parameters annotated with SecretInput."""
+    if callback is None:
+        return []
+
+    names: list[str] = []
+    for name, param in inspect.signature(callback).parameters.items():
+        if is_secret_input(param.annotation):
+            names.append(name)
+    return names
+
+
+def _capture_secret_file_path(ctx: click.Context, param: click.Parameter, value: Any, *, secret_name: str) -> Any:
+    if value is not None:
+        ctx.meta[f"tooli_secret_file_{secret_name}"] = value
+    return value
+
+
+def _capture_secret_stdin_flag(ctx: click.Context, param: click.Parameter, value: Any, *, secret_name: str) -> Any:
+    if value:
+        ctx.meta[f"tooli_secret_stdin_{secret_name}"] = True
+    return value
+
+
+def _capture_default_secret_file_path(ctx: click.Context, param: click.Parameter, value: Any) -> Any:
+    if value is not None:
+        ctx.meta["tooli_secret_file"] = value
+    return value
+
+
+def _capture_default_secret_stdin_flag(ctx: click.Context, param: click.Parameter, value: Any) -> Any:
+    if value:
+        ctx.meta["tooli_secret_stdin_default"] = True
+    return value
+
+
 def _get_tool_id(ctx: click.Context) -> str:
     # click uses command_path like "file-tools find-files".
     return ctx.command_path.replace(" ", ".")
@@ -72,13 +111,14 @@ def _get_tool_id(ctx: click.Context) -> str:
 
 def _get_app_meta_from_callback(
     callback: Callable[..., Any] | None,
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, TelemetryPipeline | None]:
     if callback is None:
-        return ("tooli", "0.0.0", "auto")
+        return ("tooli", "0.0.0", "auto", None)
     name = getattr(callback, "__tooli_app_name__", "tooli")
     version = getattr(callback, "__tooli_app_version__", "0.0.0")
     default_output = getattr(callback, "__tooli_default_output__", "auto")
-    return (str(name), str(version), str(default_output))
+    telemetry_pipeline = getattr(callback, "__tooli_telemetry_pipeline__", None)
+    return (str(name), str(version), str(default_output), telemetry_pipeline)
 
 
 def _json_dumps(value: Any) -> str:
@@ -209,6 +249,64 @@ class TooliCommand(TyperCommand):
                 ),
             ]
         )
+
+        self._tooli_secret_params = _detect_secret_parameter_names(kwargs.get("callback"))
+        secret_params = self._tooli_secret_params
+
+        for secret_name in secret_params:
+            option_name = secret_name.replace("_", "-")
+            params.extend(
+                [
+                    click.Option(
+                        [f"--{option_name}-secret-file"],
+                        type=click.Path(dir_okay=False),
+                        help="Read secret value from a file.",
+                        expose_value=False,
+                        hidden=True,
+                        callback=lambda ctx, param, value, secret_name=secret_name: _capture_secret_file_path(
+                            ctx,
+                            param,
+                            value,
+                            secret_name=secret_name,
+                        ),
+                    ),
+                    click.Option(
+                        [f"--{option_name}-secret-stdin"],
+                        is_flag=True,
+                        help="Read secret value from stdin.",
+                        expose_value=False,
+                        hidden=True,
+                        callback=lambda ctx, param, value, secret_name=secret_name: _capture_secret_stdin_flag(
+                            ctx,
+                            param,
+                            value,
+                            secret_name=secret_name,
+                        ),
+                    ),
+                ]
+            )
+
+            if len(secret_params) == 1:
+                params.extend(
+                    [
+                        click.Option(
+                            ["--secret-file"],
+                            type=click.Path(dir_okay=False),
+                            help="Read secret value from a file.",
+                            expose_value=False,
+                            hidden=True,
+                            callback=_capture_default_secret_file_path,
+                        ),
+                        click.Option(
+                            ["--secret-stdin"],
+                            is_flag=True,
+                            help="Read secret value from stdin.",
+                            expose_value=False,
+                            hidden=True,
+                            callback=_capture_default_secret_stdin_flag,
+                        ),
+                    ]
+                )
         kwargs["params"] = params
         super().__init__(*args, **kwargs)
 
@@ -258,7 +356,7 @@ class TooliCommand(TyperCommand):
         return "\n".join(lines)
 
     def invoke(self, ctx: click.Context) -> Any:
-        _, app_version, app_default_output = _get_app_meta_from_callback(self.callback)
+        _, app_version, app_default_output, telemetry_pipeline = _get_app_meta_from_callback(self.callback)
 
         # Initialize ToolContext and store in ctx.obj for callback access.
         ctx.obj = ToolContext(
@@ -311,8 +409,10 @@ class TooliCommand(TyperCommand):
 
         mode = resolve_output_mode(ctx)
         no_color = resolve_no_color(ctx)
+        command_name = _get_tool_id(ctx)
         start = time.perf_counter()
         timer_active = False
+        ctx.meta.setdefault("tooli_secret_values", [])
 
         # Handle timeout if specified.
         def _timeout_handler(signum: int, frame: Any) -> None:
@@ -328,7 +428,43 @@ class TooliCommand(TyperCommand):
             signal.setitimer(signal.ITIMER_REAL, ctx.obj.timeout)
             timer_active = True
 
+        def _emit_telemetry(*, success: bool, error: ToolError | None = None, exit_code: int | None = None) -> None:
+            if telemetry_pipeline is None:
+                return
+            telemetry_pipeline.record(
+                command=command_name,
+                success=success,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                exit_code=exit_code,
+                error_code=None if error is None else error.code,
+                error_category=None if error is None else error.category.value,
+            )
+
         try:
+            # Resolve secret arguments before invoking the callback.
+            for secret_name in getattr(self, "_tooli_secret_params", []):
+                explicit_value = ctx.params.get(secret_name)
+                file_path = ctx.meta.pop(f"tooli_secret_file_{secret_name}", None)
+                if file_path is None and len(getattr(self, "_tooli_secret_params", [])) == 1:
+                    file_path = ctx.meta.pop("tooli_secret_file", None)
+
+                use_stdin = bool(ctx.meta.pop(f"tooli_secret_stdin_{secret_name}", False))
+                if not use_stdin and len(getattr(self, "_tooli_secret_params", [])) == 1:
+                    use_stdin = bool(ctx.meta.pop("tooli_secret_stdin_default", False))
+
+                resolved = resolve_secret_value(
+                    explicit_value=explicit_value,
+                    param_name=secret_name,
+                    file_path=file_path,
+                    use_stdin=use_stdin,
+                    use_env=True,
+                )
+
+                if resolved is not None:
+                    ctx.params[secret_name] = resolved
+                    if isinstance(ctx.meta.get("tooli_secret_values"), list):
+                        ctx.meta["tooli_secret_values"].append(resolved)
+
             try:
                 result = super().invoke(ctx)
             except ToolError:
@@ -347,9 +483,16 @@ class TooliCommand(TyperCommand):
                     details=details,
                 ) from e
         except ToolError as e:
+            _emit_telemetry(
+                success=False,
+                error=e,
+                exit_code=_normalize_system_exit(e.exit_code),
+            )
             return self._handle_tool_error(ctx, app_version, start, e, mode, no_color)
         except SystemExit as e:
-            raise SystemExit(_normalize_system_exit(e.code))
+            exit_code = _normalize_system_exit(e.code)
+            _emit_telemetry(success=(exit_code == 0), exit_code=exit_code)
+            raise SystemExit(exit_code)
         finally:
             if timer_active:
                 signal.setitimer(signal.ITIMER_REAL, 0)
@@ -357,7 +500,11 @@ class TooliCommand(TyperCommand):
         duration_ms = int((time.perf_counter() - start) * 1000)
 
         if result is None:
+            _emit_telemetry(success=True, exit_code=0)
             return None
+
+        result = redact_secret_values(result, ctx.meta.get("tooli_secret_values", []))
+        _emit_telemetry(success=True, exit_code=0)
 
         if mode == OutputMode.AUTO:
             if click.get_text_stream("stdout").isatty() and not no_color and not ctx.obj.quiet:
@@ -415,6 +562,7 @@ class TooliCommand(TyperCommand):
         mode: OutputMode,
         no_color: bool,
     ) -> None:
+        secret_values = ctx.meta.get("tooli_secret_values", [])
         if mode in (OutputMode.JSON, OutputMode.JSONL, OutputMode.AUTO) and not click.get_text_stream("stdout").isatty():
             meta = EnvelopeMeta(
                 tool=_get_tool_id(ctx),
@@ -423,21 +571,25 @@ class TooliCommand(TyperCommand):
             )
             env = Envelope(ok=False, result=None, meta=meta)
             out = env.model_dump()
-            out["error"] = error.to_dict()
+            out["error"] = redact_secret_values(error.to_dict(), secret_values)
             click.echo(_json_dumps(out))
         else:
+            message = redact_secret_values(error.message, secret_values)
+            suggestion = ""
+            if error.suggestion:
+                suggestion = redact_secret_values(error.suggestion.fix, secret_values)
             if not no_color:
                 try:
                     from rich.console import Console
 
                     console = Console(stderr=True)
-                    console.print(f"[bold red]Error:[/bold red] {error.message}")
+                    console.print(f"[bold red]Error:[/bold red] {message}")
                     if error.suggestion:
-                        console.print(f"[bold blue]Suggestion:[/bold blue] {error.suggestion.fix}")
+                        console.print(f"[bold blue]Suggestion:[/bold blue] {suggestion}")
                 except Exception:
-                    click.echo(f"Error: {error.message}", err=True)
+                    click.echo(f"Error: {message}", err=True)
             else:
-                click.echo(f"Error: {error.message}", err=True)
+                click.echo(f"Error: {message}", err=True)
 
         if error.exit_code is not None:
             raise SystemExit(_normalize_system_exit(error.exit_code))

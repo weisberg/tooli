@@ -7,6 +7,7 @@ from typing import Annotated
 from typer import Argument, Option
 
 from tooli.app import Tooli
+from tooli.input import SecretInput, StdinOr
 
 __version__ = "0.1.0"
 __all__ = [
@@ -14,4 +15,6 @@ __all__ = [
     "Argument",
     "Option",
     "Tooli",
+    "SecretInput",
+    "StdinOr",
 ]
