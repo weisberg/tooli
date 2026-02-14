@@ -176,6 +176,15 @@ Tooli supports anonymous, opt-in usage telemetry for tool authors.
 - Remote forwarding is opt-in via `TOOLI_TELEMETRY_ENDPOINT` or `Tooli(telemetry_endpoint=...)`.
 - Retention policy is local-only by default: entries older than 30 days are pruned.
 
+## Dry-Run Planning
+
+Tooli supports opt-in dry-run planning via `@dry_run_support`.
+
+- Decorate command functions with `@dry_run_support`.
+- Use `record_dry_action(action, target, details={...})` to add plan steps.
+- Invoke with `--dry-run` to return the action plan instead of executing side effects.
+- In JSON output, dry-run responses set `meta.dry_run` to `true`.
+
 ## Auto-Generated Documentation
 
 ```bash

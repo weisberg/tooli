@@ -139,6 +139,16 @@ def _normalize_system_exit(code: object | None) -> int:
     return 1
 
 
+def _build_envelope_meta(ctx: click.Context, *, app_version: str, duration_ms: int) -> EnvelopeMeta:
+    return EnvelopeMeta(
+        tool=_get_tool_id(ctx),
+        version=app_version,
+        duration_ms=duration_ms,
+        dry_run=bool(getattr(getattr(ctx, "obj", None), "dry_run", False)),
+        warnings=[],
+    )
+
+
 class TooliCommand(TyperCommand):
     """TyperCommand subclass with Tooli global flags and output routing."""
 
@@ -524,23 +534,13 @@ class TooliCommand(TyperCommand):
             return result
 
         if mode == OutputMode.JSON:
-            meta = EnvelopeMeta(
-                tool=_get_tool_id(ctx),
-                version=app_version or "0.0.0",
-                duration_ms=duration_ms,
-                warnings=[],
-            )
+            meta = _build_envelope_meta(ctx, app_version=app_version or "0.0.0", duration_ms=duration_ms)
             env = Envelope(ok=True, result=result, meta=meta)
             click.echo(_json_dumps(env.model_dump()))
             return result
 
         if mode == OutputMode.JSONL:
-            meta = EnvelopeMeta(
-                tool=_get_tool_id(ctx),
-                version=app_version or "0.0.0",
-                duration_ms=duration_ms,
-                warnings=[],
-            )
+            meta = _build_envelope_meta(ctx, app_version=app_version or "0.0.0", duration_ms=duration_ms)
             if isinstance(result, list):
                 for item in result:
                     env = Envelope(ok=True, result=item, meta=meta)
@@ -564,9 +564,9 @@ class TooliCommand(TyperCommand):
     ) -> None:
         secret_values = ctx.meta.get("tooli_secret_values", [])
         if mode in (OutputMode.JSON, OutputMode.JSONL, OutputMode.AUTO) and not click.get_text_stream("stdout").isatty():
-            meta = EnvelopeMeta(
-                tool=_get_tool_id(ctx),
-                version=app_version,
+            meta = _build_envelope_meta(
+                ctx,
+                app_version=app_version,
                 duration_ms=int((time.perf_counter() - start) * 1000),
             )
             env = Envelope(ok=False, result=None, meta=meta)
