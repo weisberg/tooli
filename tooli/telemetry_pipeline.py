@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
 import datetime
-import fcntl
 import json
 import os
 import random
@@ -11,8 +11,38 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Generator
+
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None  # type: ignore[assignment]
+
+try:
+    import msvcrt as _msvcrt
+except ImportError:
+    _msvcrt = None  # type: ignore[assignment]
+
+
+@contextlib.contextmanager
+def _file_lock(f: TextIOWrapper) -> Generator[None, None, None]:
+    """Acquire an exclusive file lock, cross-platform."""
+    if _fcntl is not None:
+        _fcntl.flock(f, _fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            _fcntl.flock(f, _fcntl.LOCK_UN)
+    elif _msvcrt is not None:
+        _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
+        try:
+            yield
+        finally:
+            _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+    else:
+        yield
 
 DEFAULT_TELEMETRY_DIR = Path.home() / ".config" / "tooli" / "telemetry"
 DEFAULT_TELEMETRY_FILE = "events.jsonl"
@@ -150,12 +180,9 @@ class TelemetryPipeline:
             path = self.events_file
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as file:
-                fcntl.flock(file, fcntl.LOCK_EX)
-                try:
+                with _file_lock(file):
                     file.write(json.dumps(record.to_dict(), sort_keys=True))
                     file.write("\n")
-                finally:
-                    fcntl.flock(file, fcntl.LOCK_UN)
 
             # Prune ~1% of the time to avoid O(n) overhead on every write.
             if random.random() < 0.01:
@@ -169,8 +196,7 @@ class TelemetryPipeline:
         cutoff = self.clock() - (self.retention_days * 24 * 60 * 60)
         try:
             with path.open("r+", encoding="utf-8") as file:
-                fcntl.flock(file, fcntl.LOCK_EX)
-                try:
+                with _file_lock(file):
                     lines = file.read().splitlines()
                     kept_lines: list[str] = []
                     for line in lines:
@@ -180,7 +206,6 @@ class TelemetryPipeline:
                             if _parse_recorded_at(recorded_at) < cutoff:
                                 continue
                         except (json.JSONDecodeError, ValueError, TypeError):
-                            # Keep malformed lines to avoid accidental data loss.
                             kept_lines.append(line)
                             continue
                         kept_lines.append(line)
@@ -190,18 +215,20 @@ class TelemetryPipeline:
                         file.truncate()
                         if kept_lines:
                             file.write("\n".join(kept_lines) + "\n")
-                finally:
-                    fcntl.flock(file, fcntl.LOCK_UN)
         except OSError:
             return
 
     def _send_remote(self, record: TelemetryRecord) -> None:
         payload = json.dumps(record.to_dict(), ensure_ascii=False).encode("utf-8")
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        token = os.getenv("TOOLI_TELEMETRY_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         request = urllib.request.Request(
             self.endpoint,
             data=payload,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers=headers,
         )
         try:
             with urllib.request.urlopen(request, timeout=2) as response:

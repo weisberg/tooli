@@ -71,18 +71,20 @@ class Tooli(typer.Typer):
 
     def _register_builtins(self) -> None:
         @self.command(name="generate-skill", hidden=True)
-        def generate_skill() -> None:
+        def generate_skill(
+            output: str = typer.Option("SKILL.md", help="Output file path"),
+        ) -> None:
             """Generate SKILL.md for this application."""
             from tooli.docs.skill import generate_skill_md
+
             content = generate_skill_md(self)
-            with open("SKILL.md", "w") as f:
+            with open(output, "w") as f:
                 f.write(content)
-            # Use click.echo as we are in a CLI context
             import click
-            click.echo("Generated SKILL.md")
+
+            click.echo(f"Generated {output}")
 
         # MCP group
-        import typer
         mcp_app = typer.Typer(name="mcp", help="MCP server utilities", hidden=True)
         self.add_typer(mcp_app)
 
@@ -92,6 +94,7 @@ class Tooli(typer.Typer):
             from tooli.mcp.export import export_mcp_tools
             import json
             import click
+
             tools = export_mcp_tools(self)
             click.echo(json.dumps(tools, indent=2))
 
@@ -103,6 +106,7 @@ class Tooli(typer.Typer):
         ) -> None:
             """Run the application as an MCP server."""
             from tooli.mcp.server import serve_mcp
+
             serve_mcp(self, transport=transport, host=host, port=port)
 
         # Docs group
@@ -120,6 +124,7 @@ class Tooli(typer.Typer):
                 f.write(generate_llms_full_txt(self))
 
             import click
+
             click.echo("Generated llms.txt and llms-full.txt")
 
         @docs_app.command(name="man")
@@ -134,7 +139,32 @@ class Tooli(typer.Typer):
                 f.write(content)
 
             import click
+
             click.echo(f"Generated {filename}")
+
+        # API group
+        api_app = typer.Typer(name="api", help="HTTP API utilities", hidden=True)
+        self.add_typer(api_app)
+
+        @api_app.command(name="export-openapi")
+        def api_export_openapi() -> None:
+            """Export OpenAPI 3.1.0 schema as JSON."""
+            from tooli.api.openapi import generate_openapi_schema
+            import json
+            import click
+
+            schema = generate_openapi_schema(self)
+            click.echo(json.dumps(schema, indent=2))
+
+        @api_app.command(name="serve")
+        def api_serve(
+            host: str = typer.Option("localhost", help="HTTP host"),
+            port: int = typer.Option(8000, help="HTTP port"),
+        ) -> None:
+            """Run the application as an HTTP API server."""
+            from tooli.api.server import serve_api
+
+            serve_api(self, host=host, port=port)
 
         # Eval utilities
         eval_app = typer.Typer(name="eval", help="Evaluation tooling")
