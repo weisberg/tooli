@@ -17,7 +17,7 @@ from typer.core import TyperCommand
 
 from tooli.context import ToolContext
 from tooli.envelope import Envelope, EnvelopeMeta
-from tooli.errors import AuthError, InputError, InternalError, RuntimeError, ToolError
+from tooli.errors import AuthError, InputError, InternalError, ToolRuntimeError, ToolError
 from tooli.exit_codes import ExitCode
 from tooli.auth import AuthContext
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
@@ -953,13 +953,13 @@ class TooliCommand(TyperCommand):
         # Handle timeout if specified.
         def _timeout_handler(signum: int, frame: Any) -> None:
             del signum, frame
-            raise RuntimeError(
+            raise ToolRuntimeError(
                 message=f"Command timed out after {ctx.obj.timeout} seconds",
                 code="E4001",
                 exit_code=ExitCode.TIMEOUT_EXPIRED,
             )
 
-        if ctx.obj.timeout and ctx.obj.timeout > 0:
+        if ctx.obj.timeout and ctx.obj.timeout > 0 and hasattr(signal, "SIGALRM"):
             signal.signal(signal.SIGALRM, _timeout_handler)
             signal.setitimer(signal.ITIMER_REAL, ctx.obj.timeout)
             timer_active = True
@@ -1138,7 +1138,7 @@ class TooliCommand(TyperCommand):
                 click.echo(str(result))
             return result
 
-        if mode == OutputMode.JSON:
+        if mode in (OutputMode.JSON, OutputMode.JSONL):
             meta = _build_envelope_meta(
                 ctx,
                 app_version=app_version or "0.0.0",
@@ -1148,20 +1148,13 @@ class TooliCommand(TyperCommand):
                 next_cursor=pagination_meta.get("next_cursor"),
                 truncation_message=pagination_meta.get("truncation_message"),
             )
+
+        if mode == OutputMode.JSON:
             env = Envelope(ok=True, result=result, meta=meta)
             click.echo(_json_dumps(env.model_dump()))
             return result
 
         if mode == OutputMode.JSONL:
-            meta = _build_envelope_meta(
-                ctx,
-                app_version=app_version or "0.0.0",
-                duration_ms=duration_ms,
-                annotations=annotation_hints,
-                truncated=bool(pagination_meta.get("truncated", False)),
-                next_cursor=pagination_meta.get("next_cursor"),
-                truncation_message=pagination_meta.get("truncation_message"),
-            )
             if isinstance(result, list):
                 for item in result:
                     env = Envelope(ok=True, result=item, meta=meta)

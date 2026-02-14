@@ -30,7 +30,7 @@ def test_open_tty_prompt_stream_falls_back_on_unavailable_device(monkeypatch) ->
     """Missing console/tty device should return None."""
     from tooli import context
 
-    monkeypatch.setattr(context, "open", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("missing device")))
+    monkeypatch.setattr(context, "_open", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("missing device")))
     monkeypatch.setattr(context, "os", types.SimpleNamespace(name="posix"))
     assert context._open_tty_prompt_stream() is None
 
@@ -45,7 +45,7 @@ def test_tty_stream_opened_with_platform_path(monkeypatch) -> None:
         calls["path"] = path
         return io.StringIO()
 
-    monkeypatch.setattr(context, "open", _fake_open)
+    monkeypatch.setattr(context, "_open", _fake_open)
     monkeypatch.setattr(context, "os", types.SimpleNamespace(name="nt"))
 
     stream = context._open_tty_prompt_stream()

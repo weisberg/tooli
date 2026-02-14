@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Type, Union, get_args, get_origin
+from typing import Annotated, Any, Callable, Literal, Optional, Type, Union, get_args, get_origin
 
 from pydantic import BaseModel, Field, create_model
 
@@ -57,21 +57,23 @@ def generate_tool_schema(
         # Skip self/cls for methods
         if param_name in ("self", "cls"):
             continue
-            
+
         annotation = param.annotation
         if annotation is inspect.Parameter.empty:
             annotation = Any
-            
-        # Extract default and help text from Annotated if present
-        # In Typer, help is often in Option/Argument metadata
+
+        # Extract help text from Annotated metadata (Typer Option/Argument)
         description = ""
-        # Handle Annotated
-        if get_origin(annotation) is Any: # Placeholder for Annotated check
-             pass
-        
-        # Simplified: just use the name as description for now or extract from docstring later
+        if get_origin(annotation) is Annotated:
+            annotated_args = get_args(annotation)
+            for meta in annotated_args[1:]:
+                help_text = getattr(meta, "help", None)
+                if help_text:
+                    description = help_text
+                    break
+
         default = ... if param.default is inspect.Parameter.empty else param.default
-        
+
         fields[param_name] = (annotation, Field(default=default, description=description))
 
     # Create dynamic model

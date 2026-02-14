@@ -362,71 +362,71 @@ Add HTTP transport option for the MCP server.
 
 ---
 
-### Issue #19: Response verbosity control (`--response-format`)
+### Issue #19: Response verbosity control (`--response-format`) [DONE]
 
 **Labels:** `phase-2`, `core`, `output`
 
 Let commands emit concise or detailed responses, controlled by a standard flag.
 
 **Acceptance criteria:**
-- [ ] Add `--response-format` global flag: `concise` (default) or `detailed`
-- [ ] Store in `ToolContext` so command functions can check it
-- [ ] `tooli/output.py`: `ResponseFormat` enum
-- [ ] Convention: `concise` returns minimal fields (IDs, names, status); `detailed` includes all fields, nested objects, timestamps
-- [ ] Document the convention; enforcement is per-command (framework provides the flag and context, not automatic truncation)
-- [ ] Tests: verify flag parsing, verify command function receives the correct format
+- [x] Add `--response-format` global flag: `concise` (default) or `detailed`
+- [x] Store in `ToolContext` so command functions can check it
+- [x] `tooli/output.py`: `ResponseFormat` enum
+- [x] Convention: `concise` returns minimal fields (IDs, names, status); `detailed` includes all fields, nested objects, timestamps
+- [x] Document the convention; enforcement is per-command (framework provides the flag and context, not automatic truncation)
+- [x] Tests: verify flag parsing, verify command function receives the correct format
 
 **Depends on:** #6
 
 ---
 
-### Issue #20: Pagination, filtering, and truncation primitives
+### Issue #20: Pagination, filtering, and truncation primitives [DONE]
 
 **Labels:** `phase-2`, `core`, `output`
 
 Provide standard flags for controlling output volume on list-returning commands.
 
 **Acceptance criteria:**
-- [ ] Global flags: `--limit` (int), `--cursor` (string), `--fields` / `--select` (comma-separated field names), `--filter` (key=value), `--max-items` (int)
-- [ ] `tooli/pagination.py`: `PaginationParams` dataclass populated from flags
-- [ ] When `--limit` is set and result is truncated, include `"next_cursor"` in `meta` and a `"truncated": true` field with guidance message
-- [ ] `--fields`: post-process JSON output to include only specified keys (top-level filtering)
-- [ ] These flags are opt-in per command via `@app.command(paginated=True)` to avoid cluttering simple commands
-- [ ] Tests: verify pagination metadata, field filtering, truncation guidance message
+- [x] Global flags: `--limit` (int), `--cursor` (string), `--fields` / `--select` (comma-separated field names), `--filter` (key=value), `--max-items` (int)
+- [x] `tooli/pagination.py`: `PaginationParams` dataclass populated from flags
+- [x] When `--limit` is set and result is truncated, include `"next_cursor"` in `meta` and a `"truncated": true` field with guidance message
+- [x] `--fields`: post-process JSON output to include only specified keys (top-level filtering)
+- [x] These flags are opt-in per command via `@app.command(paginated=True)` to avoid cluttering simple commands
+- [x] Tests: verify pagination metadata, field filtering, truncation guidance message
 
 **Depends on:** #5
 
 ---
 
-### Issue #21: `--help-agent` token-optimized help output
+### Issue #21: `--help-agent` token-optimized help output [DONE]
 
 **Labels:** `phase-2`, `core`
 
 Provide a minified, token-efficient help format for agents.
 
 **Acceptance criteria:**
-- [ ] Add `--help-agent` global flag
-- [ ] When set, output a dense schema-like representation: command signature, parameter types/defaults, constraints, description — no decorative formatting, no ASCII art, minimal whitespace
-- [ ] Format inspired by TypeScript interface notation (LLMs parse this efficiently)
-- [ ] Tests: verify `--help-agent` output is valid, compact, and contains all parameter information
+- [x] Add `--help-agent` global flag
+- [x] When set, output a dense schema-like representation: command signature, parameter types/defaults, constraints, description — no decorative formatting, no ASCII art, minimal whitespace
+- [x] Format inspired by TypeScript interface notation (LLMs parse this efficiently)
+- [x] Tests: verify `--help-agent` output is valid, compact, and contains all parameter information
 
 **Depends on:** #10, #6
 
 ---
 
-### Issue #22: Tool behavioral annotations in output and schema
+### Issue #22: Tool behavioral annotations in output and schema [DONE]
 
 **Labels:** `phase-2`, `core`, `schema`
 
 Surface behavioral annotations (read-only, destructive, idempotent, cost_hint) in all output channels.
 
 **Acceptance criteria:**
-- [ ] `--schema` output includes `annotations` object with MCP-compatible hints
-- [ ] `--help` output shows a "Behavior" line (e.g., `[read-only, idempotent]`)
-- [ ] `--help-agent` output includes annotations
-- [ ] SKILL.md generation includes a "Governance" section per command with annotations + `cost_hint` + `human_in_the_loop`
-- [ ] JSON envelope `meta` includes `annotations` when present
-- [ ] Tests: verify annotations appear in each output channel
+- [x] `--schema` output includes `annotations` object with MCP-compatible hints
+- [x] `--help` output shows a "Behavior" line (e.g., `[read-only, idempotent]`)
+- [x] `--help-agent` output includes annotations
+- [x] SKILL.md generation includes a "Governance" section per command with annotations + `cost_hint` + `human_in_the_loop`
+- [x] JSON envelope `meta` includes `annotations` when present
+- [x] Tests: verify annotations appear in each output channel
 
 **Depends on:** #12, #13, #11
 
@@ -486,17 +486,17 @@ Implement the transform layer that modifies tool surfaces before they're exposed
 
 ---
 
-### Issue #26: Null-delimited list processing (`--print0`, `--null`)
+### Issue #26: Null-delimited list processing (`--print0`, `--null`) [DONE]
 
 **Labels:** `phase-2`, `core`, `input`
 
 Support safe list processing with null delimiters for bash interop.
 
 **Acceptance criteria:**
-- [ ] `--print0` global flag: when set, list-type outputs use `\0` delimiter instead of newlines (in TEXT/PLAIN modes)
-- [ ] `--null` global flag: when set, stdin list parsing uses `\0` delimiter
-- [ ] These flags are opt-in per command via `@app.command(list_processing=True)`
-- [ ] Tests: verify `--print0` output, verify `--null` input parsing, verify interop with `xargs -0`
+- [x] `--print0` global flag: when set, list-type outputs use `\0` delimiter instead of newlines (in TEXT/PLAIN modes)
+- [x] `--null` global flag: when set, stdin list parsing uses `\0` delimiter
+- [x] These flags are opt-in per command via `@app.command(list_processing=True)`
+- [x] Tests: verify `--print0` output, verify `--null` input parsing, verify interop with `xargs -0`
 
 **Depends on:** #9
 
