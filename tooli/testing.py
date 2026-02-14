@@ -32,8 +32,7 @@ class TooliTestClient:
             assert "version" in payload["meta"]
             return payload
         except (json.JSONDecodeError, KeyError, AssertionError) as e:
-            raise AssertionError(f"Invalid JSON envelope: {e}
-Output: {result.output}") from e
+            raise AssertionError(f"Invalid JSON envelope: {e}\nOutput: {result.output}") from e
 
     def assert_exit_code(self, result: Result, expected_code: int) -> None:
         """Verify exit code."""
