@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from tooli.eval.analyzer import analyze_invocations
 from tooli.eval.recorder import (
-    InvocationRecord,
-    InvocationRecorder,
-    SCHEMA_VERSION,
-    build_invocation_recorder,
     DEFAULT_EVAL_DIR,
     DEFAULT_EVAL_FILE,
+    SCHEMA_VERSION,
+    InvocationRecord,
+    InvocationRecorder,
+    build_invocation_recorder,
 )
 
 __all__ = [

@@ -102,7 +102,7 @@ def _collect_outlines(
 ) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for node in nodes:
-        if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef)):
+        if not isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef)): # noqa: UP038
             continue
 
         if not include_private and node.name.startswith("_"):

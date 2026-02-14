@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import inspect
-from enum import Enum
-from pathlib import Path
-from typing import Annotated, Any, Callable, Literal, Optional, Type, Union, get_args, get_origin
+from collections.abc import Callable  # noqa: TC003
+from typing import (
+    Annotated,
+    Any,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel, Field, create_model
 
@@ -39,12 +43,12 @@ def _dereference_refs(schema: dict[str, Any], root_schema: dict[str, Any] | None
                 ref_content = root_schema.get("$defs", {}).get(def_name, {})
                 # Recursively dereference the content
                 return _dereference_refs(ref_content, root_schema)
-        
+
         return {k: _dereference_refs(v, root_schema) for k, v in schema.items() if k != "$defs"}
-    
+
     if isinstance(schema, list):
         return [_dereference_refs(item, root_schema) for item in schema]
-    
+
     return schema
 
 
@@ -53,7 +57,7 @@ def generate_tool_schema(
 ) -> ToolSchema:
     """Generate MCP-compatible tool schema from a function signature."""
     sig = inspect.signature(func)
-    
+
     fields: dict[str, Any] = {}
     for param_name, param in sig.parameters.items():
         # Skip self/cls for methods
@@ -81,10 +85,10 @@ def generate_tool_schema(
     # Create dynamic model
     model_name = f"{name or func.__name__}_input"
     DynamicModel = create_model(model_name, **fields)
-    
+
     raw_schema = DynamicModel.model_json_schema()
     input_schema = _dereference_refs(raw_schema)
-    
+
     meta = get_command_meta(func)
     return ToolSchema(
         name=name or func.__name__,

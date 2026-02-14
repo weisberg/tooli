@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import typer
+import typer  # noqa: TC002
 from typer.testing import CliRunner
 
 from tooli import Tooli

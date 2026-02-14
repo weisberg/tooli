@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import inspect
 import json
-import sys
 import signal
-import traceback
+import sys
 import time
+import traceback
 import types
 from collections.abc import Callable, Iterable
 from typing import Any, get_args, get_origin
@@ -15,31 +15,37 @@ from typing import Any, get_args, get_origin
 import click
 from typer.core import TyperCommand
 
+from tooli.annotations import ToolAnnotation
+from tooli.auth import AuthContext  # noqa: TC001
+from tooli.command_meta import get_command_meta
 from tooli.context import ToolContext
 from tooli.envelope import Envelope, EnvelopeMeta
-from tooli.errors import AuthError, InputError, InternalError, ToolRuntimeError, ToolError
+from tooli.errors import (
+    AuthError,
+    InputError,
+    InternalError,
+    ToolError,
+    ToolRuntimeError,
+)
+from tooli.eval.recorder import InvocationRecorder  # noqa: TC001
 from tooli.exit_codes import ExitCode
-from tooli.auth import AuthContext
-from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
-from tooli.eval.recorder import InvocationRecorder
 from tooli.idempotency import get_record, set_record
-from tooli.security.policy import SecurityPolicy
-from tooli.security.sanitizer import sanitize_output
-from tooli.pagination import PaginationParams
-from tooli.telemetry import duration_ms as otel_duration_ms
-from tooli.telemetry import start_command_span
-from tooli.telemetry_pipeline import TelemetryPipeline
-from tooli.annotations import ToolAnnotation
-from tooli.command_meta import CommandMeta, get_command_meta
+from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
 from tooli.output import (
     OutputMode,
+    ResponseFormat,
     parse_output_mode,
     parse_response_format,
-    ResponseFormat,
     resolve_no_color,
     resolve_output_mode,
     resolve_response_format,
 )
+from tooli.pagination import PaginationParams
+from tooli.security.policy import SecurityPolicy
+from tooli.security.sanitizer import sanitize_output
+from tooli.telemetry import duration_ms as otel_duration_ms
+from tooli.telemetry import start_command_span
+from tooli.telemetry_pipeline import TelemetryPipeline  # noqa: TC001
 
 
 def _set_output_override(mode: OutputMode) -> Callable[[click.Context, click.Parameter, Any], Any]:
@@ -143,11 +149,11 @@ def _get_app_meta_from_callback(
 
 
 def _serialize_arg_value(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, (str, int, float, bool)) or value is None: # noqa: UP038
         return value
     if isinstance(value, dict):
         return {str(k): _serialize_arg_value(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, (list, tuple, set)): # noqa: UP038
         return [_serialize_arg_value(item) for item in value]
     return str(value)
 
@@ -275,7 +281,7 @@ def _apply_pagination(
         page = filtered_items[start:]
         return page, {"truncated": False}
 
-    if limit is None:
+    if limit is None: # noqa: SIM108
         page_size = max_items
     else:
         page_size = limit
@@ -327,7 +333,7 @@ def _is_list_annotation(annotation: Any) -> bool:
 def _is_list_value_empty(value: Any) -> bool:
     if value is None:
         return True
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, (list, tuple, set)): # noqa: UP038
         return len(value) == 0
     return False
 
@@ -1086,7 +1092,7 @@ class TooliCommand(TyperCommand):
             exit_code = _normalize_system_exit(e.code)
             _emit_invocation(status="error", exit_code=exit_code)
             _emit_telemetry(success=(exit_code == 0), exit_code=exit_code)
-            raise SystemExit(exit_code)
+            raise SystemExit(exit_code) from e
         finally:
             if timer_active:
                 signal.setitimer(signal.ITIMER_REAL, 0)
@@ -1131,7 +1137,7 @@ class TooliCommand(TyperCommand):
             # Continue through envelope path for machine-readable output.
 
         if mode in (OutputMode.TEXT, OutputMode.PLAIN):
-            if list_processing and isinstance(result, Iterable) and not isinstance(result, (dict, str, bytes, bytearray)):
+            if list_processing and isinstance(result, Iterable) and not isinstance(result, (dict, str, bytes, bytearray)): # noqa: UP038
                 delimiter = "\0" if print0_output else "\n"
                 click.echo(_render_list_output(result, delimiter=delimiter), nl=not print0_output)
             else:

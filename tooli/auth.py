@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable  # noqa: TC003
 from dataclasses import dataclass, field
-from collections.abc import Iterable
 
 
 def _parse_scopes(raw: str | None) -> frozenset[str]:
@@ -26,7 +26,7 @@ class AuthContext:
     scopes: frozenset[str] = field(default_factory=frozenset)
 
     @classmethod
-    def from_env(cls, *, programmatic_scopes: Iterable[str] | None = None) -> "AuthContext":
+    def from_env(cls, *, programmatic_scopes: Iterable[str] | None = None) -> AuthContext:
         scopes = set(programmatic_scopes or ())
         scopes.update(_parse_scopes(os.getenv("TOOLI_AUTH_SCOPES")))
         return cls(frozenset(scopes))

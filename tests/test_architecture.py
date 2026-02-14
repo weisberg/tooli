@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path  # noqa: TC003
+
+import pytest
 
 from tooli import Tooli
 from tooli.providers import FileSystemProvider
-from tooli.transforms import NamespaceTransform, VisibilityTransform
 from tooli.testing import TooliTestClient
-import pytest
+from tooli.transforms import NamespaceTransform, VisibilityTransform
 
 
 def test_namespace_transform() -> None:

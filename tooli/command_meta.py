@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
-from tooli.annotations import ToolAnnotation
-from tooli.auth import AuthContext
+from tooli.annotations import ToolAnnotation  # noqa: TC001
+from tooli.auth import AuthContext  # noqa: TC001
 from tooli.security.policy import SecurityPolicy
 
 

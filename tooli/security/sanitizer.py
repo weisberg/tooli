@@ -30,6 +30,6 @@ def sanitize_output(value: Any) -> Any:
         return tuple(sanitize_output(item) for item in value)
     if isinstance(value, set):
         return {sanitize_output(item) for item in value}
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, (bytes, bytearray)): # noqa: UP038
         return sanitize_output(value.decode("utf-8", errors="replace"))
     return value

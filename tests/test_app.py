@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import io
 import json
-from typing import Annotated, Callable
+from collections.abc import Callable  # noqa: TC003
+from typing import Annotated
 
-import typer
+import typer  # noqa: TC002
 from typer.testing import CliRunner
 
 from tooli import Argument, Option, Tooli
@@ -419,7 +420,13 @@ def test_internal_error_with_verbose() -> None:
 
 def test_error_category_exit_codes() -> None:
     """Each ToolError category should map to the expected exit code."""
-    from tooli.errors import AuthError, InternalError, InputError, ToolRuntimeError, StateError
+    from tooli.errors import (
+        AuthError,
+        InputError,
+        InternalError,
+        StateError,
+        ToolRuntimeError,
+    )
 
     categories = [
         ("input", InputError, 2),

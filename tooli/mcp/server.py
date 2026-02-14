@@ -36,7 +36,7 @@ def serve_mcp(
 
         cmd_id = tool_def.name
         callback = tool_def.callback
-        
+
         # Create a wrapper for FastMCP
         def _make_wrapper(cb: Any) -> Any:
             async def wrapper(**kwargs: Any) -> Any:

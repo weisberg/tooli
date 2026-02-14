@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import io
-import os
 import builtins
+import io  # noqa: TC003
+import os
+from dataclasses import dataclass, field
 from typing import Any
 
 import click
 
-from tooli.auth import AuthContext
-
+from tooli.auth import AuthContext  # noqa: TC001
 from tooli.errors import InputError, Suggestion
 
 

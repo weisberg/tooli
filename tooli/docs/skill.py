@@ -22,7 +22,7 @@ def generate_skill_md(app: Tooli) -> str:
     lines.append("")
 
     tools = app.get_tools()
-    
+
     # Synopses
     for tool_def in tools:
         if tool_def.hidden:
@@ -35,7 +35,7 @@ def generate_skill_md(app: Tooli) -> str:
     for tool_def in tools:
         if tool_def.hidden:
             continue
-            
+
         lines.append(f"### `{tool_def.name}`")
         lines.append("")
         help_text = tool_def.help or tool_def.callback.__doc__ or ""

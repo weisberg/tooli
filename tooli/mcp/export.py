@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from tooli.app import Tooli
@@ -22,19 +21,19 @@ class MCPToolDefinition(BaseModel):
 
 def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
     """Export all registered commands as MCP tool definitions."""
-    from tooli.schema import generate_tool_schema
     from tooli.annotations import ToolAnnotation
     from tooli.command_meta import get_command_meta
-    
+    from tooli.schema import generate_tool_schema
+
     tools = []
     for tool_def in app.get_tools():
         if tool_def.hidden:
             continue
-        
+
         callback = tool_def.callback
         schema = generate_tool_schema(callback, name=tool_def.name)
         meta = get_command_meta(callback)
-        
+
         mcp_tool = {
             "name": tool_def.name,
             "description": tool_def.help or schema.description,
@@ -54,13 +53,17 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
         annotations = meta.annotations
         if isinstance(annotations, ToolAnnotation):
             hints = {}
-            if annotations.read_only: hints["readOnlyHint"] = True
-            if annotations.idempotent: hints["idempotentHint"] = True
-            if annotations.destructive: hints["destructiveHint"] = True
-            if annotations.open_world: hints["openWorldHint"] = True
+            if annotations.read_only:
+                hints["readOnlyHint"] = True
+            if annotations.idempotent:
+                hints["idempotentHint"] = True
+            if annotations.destructive:
+                hints["destructiveHint"] = True
+            if annotations.open_world:
+                hints["openWorldHint"] = True
             if hints:
                 mcp_tool["annotations"] = hints
-        
+
         tools.append(mcp_tool)
-        
+
     return tools

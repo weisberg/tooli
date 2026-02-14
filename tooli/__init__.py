@@ -7,8 +7,8 @@ from typing import Annotated
 from typer import Argument, Option
 
 from tooli.app import Tooli
-from tooli.input import SecretInput, StdinOr
 from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
+from tooli.input import SecretInput, StdinOr
 from tooli.versioning import VersionFilter, compare_versions
 
 __version__ = "0.1.0"

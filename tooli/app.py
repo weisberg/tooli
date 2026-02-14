@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, Annotated, get_args, get_origin, get_type_hints
 import os
+from pathlib import Path  # noqa: TC003
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
-import click
+import click  # noqa: TC002
 import typer
 
+from tooli.auth import AuthContext
 from tooli.command import TooliCommand
 from tooli.command_meta import CommandMeta
 from tooli.eval.recorder import build_invocation_recorder
-from tooli.auth import AuthContext
 from tooli.input import SecretInput, is_secret_input
+from tooli.providers.local import LocalProvider
 from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
+from tooli.transforms import ToolDef, Transform  # noqa: TC001
 from tooli.versioning import compare_versions
-from tooli.providers.local import LocalProvider
-from tooli.transforms import ToolDef, Transform, VisibilityTransform
 
 
 class Tooli(typer.Typer):
@@ -94,10 +93,10 @@ class Tooli(typer.Typer):
         tools: list[ToolDef] = []
         for provider in self._providers:
             tools.extend(provider.get_tools())
-            
+
         for transform in self._transforms:
             tools = transform.apply(tools)
-            
+
         return tools
 
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
@@ -127,9 +126,11 @@ class Tooli(typer.Typer):
         @mcp_app.command(name="export")
         def mcp_export() -> None:
             """Export MCP tool definitions as JSON."""
-            from tooli.mcp.export import export_mcp_tools
             import json
+
             import click
+
+            from tooli.mcp.export import export_mcp_tools
 
             tools = export_mcp_tools(self)
             click.echo(json.dumps(tools, indent=2))
@@ -185,9 +186,11 @@ class Tooli(typer.Typer):
         @api_app.command(name="export-openapi")
         def api_export_openapi() -> None:
             """Export OpenAPI 3.1.0 schema as JSON."""
-            from tooli.api.openapi import generate_openapi_schema
             import json
+
             import click
+
+            from tooli.api.openapi import generate_openapi_schema
 
             schema = generate_openapi_schema(self)
             click.echo(json.dumps(schema, indent=2))
@@ -282,7 +285,7 @@ class Tooli(typer.Typer):
 
                 annotations_by_param[param_name] = annotation
 
-            setattr(func, "__annotations__", annotations_by_param)
+            func.__annotations__ = annotations_by_param
 
             meta = CommandMeta(
                 app_name=self.info.name or "tooli",

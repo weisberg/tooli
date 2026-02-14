@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from enum import Enum
 import os
 import sys
-from typing import Optional
+from enum import Enum
 
 import click
 
@@ -52,7 +51,7 @@ def resolve_output_mode(ctx: click.Context) -> OutputMode:
     3) TOOLI_OUTPUT env var override
     """
 
-    explicit: Optional[OutputMode] = ctx.meta.get("tooli_output_override")
+    explicit: OutputMode | None = ctx.meta.get("tooli_output_override")
     if explicit is not None:
         return explicit
 

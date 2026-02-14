@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 import importlib.util
-from types import ModuleType
 from pathlib import Path
+from types import ModuleType  # noqa: TC003
+
 from tooli.providers.base import Provider
 from tooli.transforms import ToolDef
 
 
 class FileSystemProvider(Provider):
     """Loads tool modules from a directory path."""
-    
+
     def __init__(self, directory: str | Path, *, enable_hot_reload: bool = False) -> None:
         self.directory = Path(directory)
         self.enable_hot_reload = enable_hot_reload
         self._loaded_modules: dict[str, ModuleType] = {}
         self._module_mtimes: dict[str, float] = {}
-        
+
     def _module_name(self, path: Path) -> str:
         sanitized = str(path.relative_to(self.directory).as_posix()).replace("/", "_").replace(".", "_")
         return f"tooli_filesystem_{sanitized}"
@@ -52,11 +53,11 @@ class FileSystemProvider(Provider):
         tools = []
         if not self.directory.exists():
             return []
-            
+
         for path in self.directory.glob("*.py"):
             if path.name == "__init__.py":
                 continue
-                
+
             module = self._load_module(path)
             if module is None:
                 continue

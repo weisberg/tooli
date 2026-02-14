@@ -7,7 +7,7 @@ from typing import Any
 
 from typer.testing import CliRunner, Result
 
-from tooli.app import Tooli
+from tooli.app import Tooli  # noqa: TC001
 
 
 class TooliTestClient:

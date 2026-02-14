@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 from typer.testing import CliRunner
 
 from tooli import Tooli, dry_run_support, record_dry_action
