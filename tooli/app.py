@@ -277,9 +277,9 @@ class Tooli(typer.Typer):
                         base_annotation = annotation_args[0]
                         metadata = annotation_args[1:]
                         if base_annotation is SecretInput:
-                            annotation = str if not metadata else Annotated[str, *metadata]
+                            annotation = str if not metadata else Annotated[(str, *metadata)]
                         else:
-                            annotation = Annotated[str, *metadata] if metadata else str
+                            annotation = Annotated[(str, *metadata)] if metadata else str
                 else:
                     annotation = str
 
