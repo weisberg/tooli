@@ -303,6 +303,29 @@ def test_print0_list_output() -> None:
     assert result.output == "alpha\0beta\0gamma"
 
 
+def test_print0_output_round_trip_with_null_input() -> None:
+    """--print0 output should interoperate with --null input parsing."""
+    app = Tooli(name="test-app")
+
+    @app.command(list_processing=True)
+    def items() -> list[str]:
+        return ["alpha", "beta", "gamma"]
+
+    @app.command(list_processing=True)
+    def join(values: list[str] | None = None) -> str:
+        return "|".join(values or [])
+
+    runner = CliRunner()
+    printed = runner.invoke(app, ["items", "--print0", "--text"])
+    assert printed.exit_code == 0
+    assert printed.output == "alpha\0beta\0gamma"
+
+    parsed = runner.invoke(app, ["join", "--null", "--text"], input=printed.output)
+    assert parsed.exit_code == 0
+    assert parsed.output.strip() == "alpha|beta|gamma"
+    assert parsed.output.count("\0") == 0
+
+
 def test_null_input_parsing_for_list_commands() -> None:
     """--null should parse NUL-delimited list input for list-processing commands."""
     app = Tooli(name="test-app")
