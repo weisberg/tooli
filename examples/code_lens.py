@@ -1,4 +1,14 @@
-"""Token-efficient AST code outline example for Tooli."""
+"""Token-efficient AST outline extractor for Tooli.
+
+This example exists to show how agents can ask for high-signal structure instead of
+large source dumps. It is intended to be used before deeper file edits, and it is
+safe to run in non-interactive pipelines because all output is structured data.
+
+Use cases:
+- quickly map function/class names before opening a large file,
+- feed outlines into downstream tools (summaries, dependency tracing, etc.),
+- preserve context budget by avoiding function bodies and comments by default.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +17,7 @@ import os
 from typing import Annotated, Any
 
 from tooli import Argument, Option, Tooli
-from tooli.annotations import ReadOnly
+from tooli.annotations import Idempotent, ReadOnly
 from tooli.errors import InputError, Suggestion
 
 app = Tooli(name="code-lens", description="Extract structural outlines from Python files")
@@ -30,7 +40,8 @@ def _normalize_detail(value: str) -> str:
 
 def _node_signature(node: ast.AST) -> str | None:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-        return f"{'async ' if isinstance(node, ast.AsyncFunctionDef) else ''}{node.name}({ast.unparse(node.args)})"
+        prefix = "async " if isinstance(node, ast.AsyncFunctionDef) else ""
+        return f"{prefix}{node.name}({ast.unparse(node.args)})"
     if isinstance(node, ast.ClassDef):
         if not node.bases:
             return node.name
@@ -85,12 +96,35 @@ def _collect_outlines(
     return items
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly | Idempotent,
+    list_processing=True,
+    paginated=True,
+    cost_hint="low",
+    examples=[
+        {"args": ["outline", "path/to/main.py"], "description": "Get concise symbols only"},
+        {
+            "args": ["outline", "path/to/main.py", "--detail", "detailed"],
+            "description": "Get signatures + docstrings for richer follow-up prompts",
+        },
+    ],
+    error_codes={
+        "E1000": "Bad file path provided.",
+        "E1002": "File could not be read.",
+        "E1003": "Python syntax invalid for AST parsing.",
+    },
+)
 def outline(
     file_path: Annotated[str, Argument(help="Python file to analyze")],
     detail: Annotated[str, Option(help="Output detail: concise or detailed")] = "concise",
 ) -> list[dict[str, Any]]:
-    """Return a compact structural outline for a Python file."""
+    """Return a compact structural outline for a Python file.
+
+    Agent guidance:
+    - Use `--detail concise` (default) to minimize tokens when you need only symbol names.
+    - Use `--detail detailed` when a downstream step needs signatures and docstrings.
+    - Use pagination flags (`--limit`, `--cursor`) when this file has deep nesting.
+    """
 
     normalized_detail = _normalize_detail(detail)
 
