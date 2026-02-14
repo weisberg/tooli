@@ -136,6 +136,7 @@ class Tooli(typer.Typer):
         *,
         annotations: Any | None = None,
         list_processing: bool = False,
+        paginated: bool = False,
         examples: list[dict[str, Any]] | None = None,
         error_codes: dict[str, str] | None = None,
         timeout: float | None = None,
@@ -206,6 +207,7 @@ class Tooli(typer.Typer):
             setattr(func, "__tooli_security_policy__", self.security_policy)
             setattr(func, "__tooli_auth_context__", self.auth_context)
             setattr(func, "__tooli_list_processing__", bool(list_processing))
+            setattr(func, "__tooli_paginated__", bool(paginated))
             setattr(func, "__tooli_version__", None if version is None else str(version))
             setattr(func, "__tooli_deprecated__", deprecated)
             setattr(func, "__tooli_deprecated_message__", deprecated_message)

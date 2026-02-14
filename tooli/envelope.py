@@ -13,6 +13,10 @@ class EnvelopeMeta(BaseModel):
     duration_ms: int = Field(ge=0)
     dry_run: bool = False
     warnings: list[str] = Field(default_factory=list)
+    annotations: dict[str, Any] | None = None
+    truncated: bool = False
+    next_cursor: str | None = None
+    truncation_message: str | None = None
 
 
 class Envelope(BaseModel):
