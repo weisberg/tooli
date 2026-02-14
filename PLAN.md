@@ -521,19 +521,19 @@ Generate OpenAPI schemas and optionally serve commands as an HTTP API.
 
 ---
 
-### Issue #28: `--idempotency-key` support for safe retries
+### Issue #28: `--idempotency-key` support for safe retries [DONE]
 
 **Labels:** `phase-2`, `core`
 
 Add idempotency key support so agents can safely retry commands.
 
 **Acceptance criteria:**
-- [ ] `--idempotency-key` global flag (string)
-- [ ] Store in `ToolContext`; command functions can check for duplicate keys
-- [ ] `tooli/idempotency.py`: simple file-based or in-memory cache for idempotency tracking within a process lifetime
-- [ ] If a duplicate key is detected and the command is marked `idempotent`, return the cached result
-- [ ] If not marked idempotent, return an error explaining the duplicate key
-- [ ] Tests: verify duplicate key returns cached result for idempotent commands, error for non-idempotent
+- [x] `--idempotency-key` global flag (string)
+- [x] Store in `ToolContext`; command functions can check for duplicate keys
+- [x] `tooli/idempotency.py`: simple file-based or in-memory cache for idempotency tracking within a process lifetime
+- [x] If a duplicate key is detected and the command is marked `idempotent`, return the cached result
+- [x] If not marked idempotent, return an error explaining the duplicate key
+- [x] Tests: verify duplicate key returns cached result for idempotent commands, error for non-idempotent
 
 **Depends on:** #12, #6
 
@@ -619,18 +619,18 @@ Built-in tooling to record and analyze agent-tool interactions.
 
 ---
 
-### Issue #33: OpenTelemetry observability
+### Issue #33: OpenTelemetry observability [DONE]
 
 **Labels:** `phase-3`, `observability`
 
 Add optional OpenTelemetry instrumentation.
 
 **Acceptance criteria:**
-- [ ] `tooli/telemetry.py`: optional OTel span creation around command execution
-- [ ] Span attributes: command name, arguments (redacted sensitive), duration, exit code, error category
-- [ ] Only active when `opentelemetry-api` is installed (optional dependency) and `TOOLI_OTEL_ENABLED=true`
-- [ ] Zero overhead when disabled (no import of OTel packages)
-- [ ] Tests: verify spans are created when enabled, verify no import when disabled
+- [x] `tooli/telemetry.py`: optional OTel span creation around command execution
+- [x] Span attributes: command name, arguments (redacted sensitive), duration, exit code, error category
+- [x] Only active when `opentelemetry-api` is installed (optional dependency) and `TOOLI_OTEL_ENABLED=true`
+- [x] Zero overhead when disabled (no import of OTel packages)
+- [x] Tests: verify spans are created when enabled, verify no import when disabled
 
 **Depends on:** #5
 
@@ -655,18 +655,18 @@ Implement the security middleware for prompt injection resistance and policy enf
 
 ---
 
-### Issue #35: Authorization framework
+### Issue #35: Authorization framework [DONE]
 
 **Labels:** `phase-3`, `security`
 
 Add scope-based authorization to commands.
 
 **Acceptance criteria:**
-- [ ] `@app.command(auth=["scopes:read", "scopes:write"])` decorator argument
-- [ ] `tooli/auth.py`: `AuthContext` that carries current scopes, populated from env var (`TOOLI_AUTH_SCOPES`), config, or programmatic injection
-- [ ] Before command execution, check required scopes against `AuthContext`; raise `AuthError` if insufficient
-- [ ] Schema export includes `auth` requirements per command
-- [ ] Tests: verify authorized call succeeds, unauthorized call raises `AuthError` with correct exit code
+- [x] `@app.command(auth=["scopes:read", "scopes:write"])` decorator argument
+- [x] `tooli/auth.py`: `AuthContext` that carries current scopes, populated from env var (`TOOLI_AUTH_SCOPES`), config, or programmatic injection
+- [x] Before command execution, check required scopes against `AuthContext`; raise `AuthError` if insufficient
+- [x] Schema export includes `auth` requirements per command
+- [x] Tests: verify authorized call succeeds, unauthorized call raises `AuthError` with correct exit code
 
 **Depends on:** #7, #12
 
