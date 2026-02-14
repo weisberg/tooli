@@ -7,6 +7,19 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from tooli.exit_codes import ExitCode
+
+
+def _default_exit_code(category: "ErrorCategory") -> ExitCode:
+    mapping = {
+        ErrorCategory.INPUT: ExitCode.INVALID_INPUT,
+        ErrorCategory.AUTH: ExitCode.AUTH_DENIED,
+        ErrorCategory.STATE: ExitCode.STATE_ERROR,
+        ErrorCategory.RUNTIME: ExitCode.INTERNAL_ERROR,
+        ErrorCategory.INTERNAL: ExitCode.INTERNAL_ERROR,
+    }
+    return mapping[category]
+
 
 class ErrorCategory(str, Enum):
     INPUT = "input"
@@ -34,7 +47,7 @@ class ToolError(Exception):
         suggestion: Suggestion | None = None,
         is_retryable: bool = False,
         details: dict[str, Any] | None = None,
-        exit_code: int = 70,
+        exit_code: ExitCode | int | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -43,7 +56,11 @@ class ToolError(Exception):
         self.suggestion = suggestion
         self.is_retryable = is_retryable
         self.details = details or {}
-        self.exit_code = exit_code
+        resolved_exit_code = exit_code if exit_code is not None else _default_exit_code(category)
+        if isinstance(resolved_exit_code, ExitCode):
+            self.exit_code = int(resolved_exit_code)
+        else:
+            self.exit_code = resolved_exit_code
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,7 +89,7 @@ class InputError(ToolError):
             category=ErrorCategory.INPUT,
             suggestion=suggestion,
             details=details,
-            exit_code=2,
+            exit_code=ExitCode.INVALID_INPUT,
         )
 
 
@@ -92,7 +109,7 @@ class AuthError(ToolError):
             category=ErrorCategory.AUTH,
             suggestion=suggestion,
             details=details,
-            exit_code=30,
+            exit_code=ExitCode.AUTH_DENIED,
         )
 
 
@@ -154,5 +171,5 @@ class InternalError(ToolError):
             category=ErrorCategory.INTERNAL,
             suggestion=suggestion,
             details=details,
-            exit_code=70,
+            exit_code=ExitCode.INTERNAL_ERROR,
         )
