@@ -18,12 +18,12 @@ def generate_openapi_schema(app: Tooli) -> dict[str, Any]:
 
     paths: dict[str, Any] = {}
 
-    for cmd in app.registered_commands:
-        if cmd.hidden:
+    for tool in app.get_tools():
+        if tool.hidden:
             continue
 
-        cmd_id = cmd.name or cmd.callback.__name__
-        schema = generate_tool_schema(cmd.callback, name=cmd_id)
+        cmd_id = tool.name or tool.callback.__name__
+        schema = generate_tool_schema(tool.callback, name=cmd_id)
 
         # We model every command as a POST request to avoid URL length issues
         # and to keep it simple for agent discovery.

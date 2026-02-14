@@ -45,14 +45,12 @@ def generate_man_page(app: Tooli) -> str:
     lines.append("Output JSON Schema for the command and exit.")
 
     lines.append(".SH COMMANDS")
-    for cmd in app.registered_commands:
-        if cmd.hidden:
+    for tool_def in app.get_tools():
+        if tool_def.hidden:
             continue
-        cmd_name = cmd.name or cmd.callback.__name__
-        help_text = cmd.help or cmd.callback.__doc__ or ""
         lines.append(".TP")
-        lines.append(rf"\fB{cmd_name}\fR")
-        lines.append(help_text)
+        lines.append(rf"\fB{tool_def.name}\fR")
+        lines.append(tool_def.help or tool_def.callback.__doc__ or "")
 
     lines.append(".SH EXIT CODES")
     lines.append("0: Success")

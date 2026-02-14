@@ -21,13 +21,11 @@ def generate_llms_txt(app: Tooli) -> str:
     lines.append("## Commands")
     lines.append("")
 
-    for cmd in app.registered_commands:
-        if cmd.hidden:
+    for tool_def in app.get_tools():
+        if tool_def.hidden:
             continue
-        cmd_name = cmd.name or cmd.callback.__name__
-        help_text = cmd.help or cmd.callback.__doc__ or ""
-        short_help = help_text.split("\n")[0]
-        lines.append(f"- [{cmd_name}](llms-full.txt#{cmd_name}): {short_help}")
+        short_help = (tool_def.help or tool_def.callback.__doc__ or "").split("\n")[0]
+        lines.append(f"- [{tool_def.name}](llms-full.txt#{tool_def.name}): {short_help}")
 
     lines.append("")
     lines.append("Optional: [Full Documentation](llms-full.txt)")

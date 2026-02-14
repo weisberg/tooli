@@ -28,11 +28,11 @@ def build_app(app: Tooli) -> Any:
     ]
 
     # Create an endpoint for each command
-    for cmd in app.registered_commands:
-        if cmd.hidden:
+    for tool in app.get_tools():
+        if tool.hidden:
             continue
 
-        cmd_id = cmd.name or cmd.callback.__name__
+        cmd_id = tool.name or tool.callback.__name__
 
         async def make_handler(command: Any) -> Any:
             async def handler(request: Any) -> JSONResponse:
@@ -87,7 +87,7 @@ def build_app(app: Tooli) -> Any:
 
             return handler
 
-        routes.append(Route(f"/{cmd_id}", await make_handler(cmd), methods=["POST"]))
+        routes.append(Route(f"/{cmd_id}", await make_handler(tool), methods=["POST"]))
 
     return Starlette(debug=True, routes=routes)
 

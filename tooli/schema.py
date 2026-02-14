@@ -9,6 +9,8 @@ from typing import Annotated, Any, Callable, Literal, Optional, Type, Union, get
 
 from pydantic import BaseModel, Field, create_model
 
+from tooli.command_meta import get_command_meta
+
 
 class ToolSchema(BaseModel):
     name: str
@@ -83,12 +85,13 @@ def generate_tool_schema(
     raw_schema = DynamicModel.model_json_schema()
     input_schema = _dereference_refs(raw_schema)
     
+    meta = get_command_meta(func)
     return ToolSchema(
         name=name or func.__name__,
         description=func.__doc__ or "",
         input_schema=input_schema,
-        version=getattr(func, "__tooli_version__", None),
-        deprecated=bool(getattr(func, "__tooli_deprecated__", False)),
-        deprecated_message=getattr(func, "__tooli_deprecated_message__", None),
-        auth=required_scopes or list(getattr(func, "__tooli_auth__", [])),
+        version=meta.version,
+        deprecated=meta.deprecated,
+        deprecated_message=meta.deprecated_message,
+        auth=required_scopes or list(meta.auth),
     )

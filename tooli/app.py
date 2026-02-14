@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Annotated, get_args, get_origin, get_type_hints
 import os
 
+import click
 import typer
 
 from tooli.command import TooliCommand
+from tooli.command_meta import CommandMeta
 from tooli.eval.recorder import build_invocation_recorder
 from tooli.auth import AuthContext
 from tooli.input import SecretInput, is_secret_input
 from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
 from tooli.versioning import compare_versions
+from tooli.providers.local import LocalProvider
+from tooli.transforms import ToolDef, Transform, VisibilityTransform
 
 
 class Tooli(typer.Typer):
@@ -66,8 +71,39 @@ class Tooli(typer.Typer):
         self.invocation_recorder = build_invocation_recorder(record=record)
 
         self._versioned_commands_latest: dict[str, str] = {}
+        self._providers: list[Any] = [LocalProvider(self)]
+        self._transforms: list[Transform] = []
+
         # Register built-in commands
         self._register_builtins()
+
+    def add_provider(self, provider: Any) -> None:
+        """Register an additional tool provider."""
+        self._providers.append(provider)
+
+    def with_transforms(self, *transforms: Transform) -> Tooli:
+        """Return a new Tooli instance (view) with transforms applied."""
+        import copy
+        # This is a shallow copy for the "view"
+        view = copy.copy(self)
+        view._transforms = list(self._transforms) + list(transforms)
+        return view
+
+    def get_tools(self) -> list[ToolDef]:
+        """Return all tools from all providers, with transforms applied."""
+        tools: list[ToolDef] = []
+        for provider in self._providers:
+            tools.extend(provider.get_tools())
+            
+        for transform in self._transforms:
+            tools = transform.apply(tools)
+            
+        return tools
+
+    def list_commands(self, ctx: click.Context | None = None) -> list[str]:
+        """Override click help output to use transformed command names."""
+        del ctx
+        return sorted(tool.name for tool in self.get_tools() if not tool.hidden)
 
     def _register_builtins(self) -> None:
         @self.command(name="generate-skill", hidden=True)
@@ -247,31 +283,30 @@ class Tooli(typer.Typer):
                 annotations_by_param[param_name] = annotation
 
             setattr(func, "__annotations__", annotations_by_param)
-            setattr(func, "__tooli_secret_params__", secret_params)
 
-            # Attach app-level metadata to the callback for downstream use
-            # (e.g., envelopes).
-            setattr(func, "__tooli_app_name__", self.info.name or "tooli")
-            setattr(func, "__tooli_app_version__", self.version)
-            setattr(func, "__tooli_default_output__", self.default_output)
-
-            # Attach command-level metadata
-            setattr(func, "__tooli_annotations__", annotations)
-            setattr(func, "__tooli_examples__", examples or [])
-            setattr(func, "__tooli_error_codes__", error_codes or {})
-            setattr(func, "__tooli_timeout__", timeout)
-            setattr(func, "__tooli_cost_hint__", cost_hint)
-            setattr(func, "__tooli_human_in_the_loop__", human_in_the_loop)
-            setattr(func, "__tooli_auth__", auth or [])
-            setattr(func, "__tooli_telemetry_pipeline__", self.telemetry_pipeline)
-            setattr(func, "__tooli_invocation_recorder__", self.invocation_recorder)
-            setattr(func, "__tooli_security_policy__", self.security_policy)
-            setattr(func, "__tooli_auth_context__", self.auth_context)
-            setattr(func, "__tooli_list_processing__", bool(list_processing))
-            setattr(func, "__tooli_paginated__", bool(paginated))
-            setattr(func, "__tooli_version__", None if version is None else str(version))
-            setattr(func, "__tooli_deprecated__", deprecated)
-            setattr(func, "__tooli_deprecated_message__", deprecated_message)
+            meta = CommandMeta(
+                app_name=self.info.name or "tooli",
+                app_version=self.version,
+                default_output=self.default_output,
+                telemetry_pipeline=self.telemetry_pipeline,
+                invocation_recorder=self.invocation_recorder,
+                security_policy=self.security_policy,
+                auth_context=self.auth_context,
+                annotations=annotations,
+                examples=examples or [],
+                error_codes=error_codes or {},
+                timeout=timeout,
+                cost_hint=cost_hint,
+                human_in_the_loop=human_in_the_loop,
+                auth=auth or [],
+                list_processing=bool(list_processing),
+                paginated=bool(paginated),
+                version=None if version is None else str(version),
+                deprecated=deprecated,
+                deprecated_message=deprecated_message,
+                secret_params=secret_params,
+            )
+            func.__tooli_meta__ = meta
 
         if version is None:
             decorator = super().command(name=name, **kwargs)
