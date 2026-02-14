@@ -18,6 +18,7 @@ from tooli.envelope import Envelope, EnvelopeMeta
 from tooli.errors import InputError, InternalError, RuntimeError, ToolError
 from tooli.exit_codes import ExitCode
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
+from tooli.eval.recorder import InvocationRecorder
 from tooli.telemetry_pipeline import TelemetryPipeline
 from tooli.output import (
     OutputMode,
@@ -70,6 +71,10 @@ def _capture_tooli_flags(ctx: click.Context, param: click.Parameter, value: Any)
 
 def _detect_secret_parameter_names(callback: Callable[..., Any] | None) -> list[str]:
     """Return callback parameters annotated with SecretInput."""
+    secret_params = getattr(callback, "__tooli_secret_params__", None)
+    if isinstance(secret_params, list):
+        return secret_params
+
     if callback is None:
         return []
 
@@ -111,14 +116,32 @@ def _get_tool_id(ctx: click.Context) -> str:
 
 def _get_app_meta_from_callback(
     callback: Callable[..., Any] | None,
-) -> tuple[str, str, str, TelemetryPipeline | None]:
+) -> tuple[str, str, str, TelemetryPipeline | None, InvocationRecorder | None]:
     if callback is None:
-        return ("tooli", "0.0.0", "auto", None)
+        return ("tooli", "0.0.0", "auto", None, None)
     name = getattr(callback, "__tooli_app_name__", "tooli")
     version = getattr(callback, "__tooli_app_version__", "0.0.0")
     default_output = getattr(callback, "__tooli_default_output__", "auto")
     telemetry_pipeline = getattr(callback, "__tooli_telemetry_pipeline__", None)
-    return (str(name), str(version), str(default_output), telemetry_pipeline)
+    invocation_recorder = getattr(callback, "__tooli_invocation_recorder__", None)
+    return (str(name), str(version), str(default_output), telemetry_pipeline, invocation_recorder)
+
+
+def _serialize_arg_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, dict):
+        return {str(k): _serialize_arg_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_serialize_arg_value(item) for item in value]
+    return str(value)
+
+
+def _collect_invocation_args(ctx: click.Context) -> dict[str, Any]:
+    params = getattr(ctx, "params", None)
+    if not isinstance(params, dict):
+        return {}
+    return {str(name): _serialize_arg_value(value) for name, value in params.items()}
 
 
 def _json_dumps(value: Any) -> str:
@@ -140,12 +163,23 @@ def _normalize_system_exit(code: object | None) -> int:
 
 
 def _build_envelope_meta(ctx: click.Context, *, app_version: str, duration_ms: int) -> EnvelopeMeta:
+    warnings: list[str] = []
+    callback = getattr(ctx, "command", None)
+    if callback is not None:
+        callback_obj = getattr(callback, "callback", None)
+        if callback_obj is not None and getattr(callback_obj, "__tooli_deprecated__", False):
+            deprecated_message = getattr(callback_obj, "__tooli_deprecated_message__", None)
+            if deprecated_message:
+                warnings.append(str(deprecated_message))
+            else:
+                warnings.append("This command is deprecated.")
+
     return EnvelopeMeta(
         tool=_get_tool_id(ctx),
         version=app_version,
         duration_ms=duration_ms,
         dry_run=bool(getattr(getattr(ctx, "obj", None), "dry_run", False)),
-        warnings=[],
+        warnings=warnings,
     )
 
 
@@ -366,7 +400,9 @@ class TooliCommand(TyperCommand):
         return "\n".join(lines)
 
     def invoke(self, ctx: click.Context) -> Any:
-        _, app_version, app_default_output, telemetry_pipeline = _get_app_meta_from_callback(self.callback)
+        _, app_version, app_default_output, telemetry_pipeline, invocation_recorder = _get_app_meta_from_callback(
+            self.callback
+        )
 
         # Initialize ToolContext and store in ctx.obj for callback access.
         ctx.obj = ToolContext(
@@ -375,7 +411,7 @@ class TooliCommand(TyperCommand):
             dry_run=bool(ctx.meta.get("tooli_flag_dry_run", False)),
             yes=bool(ctx.meta.get("tooli_flag_yes", False)),
             timeout=ctx.meta.get("tooli_flag_timeout"),
-            response_format=resolve_response_format(ctx),
+            response_format=resolve_response_format(ctx).value,
         )
 
         if bool(ctx.meta.get("tooli_flag_help_agent", False)):
@@ -450,6 +486,20 @@ class TooliCommand(TyperCommand):
                 error_category=None if error is None else error.category.value,
             )
 
+        def _emit_invocation(*, status: str, error_code: str | None = None, exit_code: int | None = None) -> None:
+            if invocation_recorder is None:
+                return
+
+            args = redact_secret_values(_collect_invocation_args(ctx), ctx.meta.get("tooli_secret_values", []))
+            invocation_recorder.record(
+                command=command_name,
+                args=args,
+                status=status,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_code=error_code,
+                exit_code=exit_code,
+            )
+
         try:
             # Resolve secret arguments before invoking the callback.
             for secret_name in getattr(self, "_tooli_secret_params", []):
@@ -493,6 +543,11 @@ class TooliCommand(TyperCommand):
                     details=details,
                 ) from e
         except ToolError as e:
+            _emit_invocation(
+                status="error",
+                error_code=e.code,
+                exit_code=_normalize_system_exit(e.exit_code),
+            )
             _emit_telemetry(
                 success=False,
                 error=e,
@@ -501,6 +556,7 @@ class TooliCommand(TyperCommand):
             return self._handle_tool_error(ctx, app_version, start, e, mode, no_color)
         except SystemExit as e:
             exit_code = _normalize_system_exit(e.code)
+            _emit_invocation(status="error", exit_code=exit_code)
             _emit_telemetry(success=(exit_code == 0), exit_code=exit_code)
             raise SystemExit(exit_code)
         finally:
@@ -510,10 +566,12 @@ class TooliCommand(TyperCommand):
         duration_ms = int((time.perf_counter() - start) * 1000)
 
         if result is None:
+            _emit_invocation(status="success", exit_code=0)
             _emit_telemetry(success=True, exit_code=0)
             return None
 
         result = redact_secret_values(result, ctx.meta.get("tooli_secret_values", []))
+        _emit_invocation(status="success", exit_code=0)
         _emit_telemetry(success=True, exit_code=0)
 
         if mode == OutputMode.AUTO:

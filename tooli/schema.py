@@ -14,9 +14,12 @@ class ToolSchema(BaseModel):
     name: str
     description: str
     input_schema: dict[str, Any]
+    version: str | None = None
     output_schema: dict[str, Any] | None = None
     annotations: list[str] = Field(default_factory=list)
     examples: list[dict[str, Any]] = Field(default_factory=list)
+    deprecated: bool = False
+    deprecated_message: str | None = None
 
 
 def _dereference_refs(schema: dict[str, Any], root_schema: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -78,4 +81,7 @@ def generate_tool_schema(func: Callable[..., Any], name: str | None = None) -> T
         name=name or func.__name__,
         description=func.__doc__ or "",
         input_schema=input_schema,
+        version=getattr(func, "__tooli_version__", None),
+        deprecated=bool(getattr(func, "__tooli_deprecated__", False)),
+        deprecated_message=getattr(func, "__tooli_deprecated_message__", None),
     )

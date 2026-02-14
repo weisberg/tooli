@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import io
 import os
+import builtins
 from typing import Any
 
 import click
@@ -78,16 +79,18 @@ def _open_tty_prompt_stream() -> io.TextIOBase | None:
         return None
 
 
+# Exported for test monkeypatching.
+open = builtins.open
+
+
 def _read_confirmation_response(message: str, stream: io.TextIOBase, *, default: bool) -> bool:
     """Read and parse a yes/no confirmation answer from the stream."""
-
-    prompt = f"{message} [Y/n]" if default else f"{message} [y/N]"
-    click.echo(f"{prompt}: ", nl=False, err=True)
 
     response = stream.readline()
     if response == "":
         return default
 
+    prompt = f"{message} [Y/n]" if default else f"{message} [y/N]"
     value = response.strip().lower()
     if value == "":
         return default
