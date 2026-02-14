@@ -23,7 +23,7 @@ def _run_json(runner: CliRunner, args: list[str], **kwargs: object):
     raise AssertionError("No envelope found in output")
 
 
-def _create_images(path: "Path") -> None:
+def _create_images(path: Path) -> None:
     """Create fake image files for testing."""
     (path / "photo1.jpg").write_bytes(b"\xff\xd8\xff\xe0" + b"A" * 100)
     (path / "photo2.png").write_bytes(b"\x89PNG" + b"B" * 200)

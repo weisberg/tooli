@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
-import typer
+import typer  # noqa: TC002
 
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Destructive, Idempotent, ReadOnly

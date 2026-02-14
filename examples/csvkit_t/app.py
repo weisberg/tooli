@@ -7,6 +7,7 @@ OpenWorld annotation for data transformation commands.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import sys
@@ -116,10 +117,8 @@ def inspect(
         if col_type in ("int", "float"):
             numeric = []
             for v in values:
-                try:
+                with contextlib.suppress(ValueError):
                     numeric.append(float(v))
-                except ValueError:
-                    pass
             if numeric:
                 col_info["min"] = min(numeric)
                 col_info["max"] = max(numeric)

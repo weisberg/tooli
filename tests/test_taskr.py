@@ -91,7 +91,7 @@ def test_taskr_purge(tmp_path: Path) -> None:
     runner = CliRunner()
 
     r1 = _run_json(runner, ["add", "Task A", "--store", store])
-    r2 = _run_json(runner, ["add", "Task B", "--store", store])
+    _run_json(runner, ["add", "Task B", "--store", store])
     _run_json(runner, ["done", r1["task"]["id"], "--store", store])
 
     purge_result = _run_json(runner, ["purge", "--store", store, "--yes"])

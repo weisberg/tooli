@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
-import typer
+import typer  # noqa: TC002
 
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Destructive, ReadOnly

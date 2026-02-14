@@ -11,7 +11,6 @@ import os
 import platform
 import shutil
 import subprocess
-import sys
 import time
 from typing import Annotated, Any
 

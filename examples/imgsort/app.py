@@ -8,13 +8,12 @@ batch file operations, ReadOnly scanning.
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any
 
-import typer
+import typer  # noqa: TC002
 
 from tooli import Argument, Option, Tooli, dry_run_support, record_dry_action
 from tooli.annotations import Destructive, Idempotent, ReadOnly

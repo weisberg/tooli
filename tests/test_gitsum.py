@@ -28,7 +28,7 @@ def _run_json(runner: CliRunner, args: list[str], **kwargs: object):
     return payload["result"]
 
 
-def _init_repo(path: "Path") -> None:
+def _init_repo(path: Path) -> None:
     """Create a minimal git repo with one commit."""
     subprocess.run(["git", "init"], cwd=str(path), capture_output=True, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=str(path), capture_output=True, check=True)
