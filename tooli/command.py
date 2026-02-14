@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import inspect
 import json
+import sys
 import signal
 import traceback
 import time
-from collections.abc import Callable
-from typing import Any, Iterable
+import types
+from collections.abc import Callable, Iterable
+from typing import Any, get_args, get_origin
 
 import click
 from typer.core import TyperCommand
@@ -163,6 +165,88 @@ def _is_idempotent_command(callback: Callable[..., Any] | None) -> bool:
     return bool(getattr(annotations, "idempotent", False))
 
 
+def _is_list_processing_command(callback: Callable[..., Any] | None) -> bool:
+    return bool(getattr(callback, "__tooli_list_processing__", False))
+
+
+def _strip_annotated(annotation: Any) -> Any:
+    origin = get_origin(annotation)
+    if origin is not None and getattr(origin, "__name__", None) == "Annotated":
+        args = get_args(annotation)
+        if args:
+            return args[0]
+    return annotation
+
+
+def _is_list_annotation(annotation: Any) -> bool:
+    annotation = _strip_annotated(annotation)
+    if annotation is inspect.Parameter.empty:
+        return False
+
+    if annotation in (list, tuple, set, Iterable):
+        return True
+
+    origin = get_origin(annotation)
+    if origin in (list, tuple, set):
+        return True
+
+    if origin in (types.UnionType, getattr(types, "UnionType", object)) or str(origin).endswith(".Union'>"):
+        optional_args = [arg for arg in get_args(annotation) if arg is not None]
+        return any(_is_list_annotation(arg) for arg in optional_args)
+
+    return False
+
+
+def _is_list_value_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple, set)):
+        return len(value) == 0
+    return False
+
+
+def _parse_null_delimited_input() -> list[str]:
+    if sys.stdin.isatty():
+        return []
+
+    raw = sys.stdin.read()
+    if not raw:
+        return []
+
+    return [entry for entry in raw.split("\0") if entry]
+
+
+def _resolve_null_input_arg(ctx: click.Context) -> str | None:
+    command = getattr(ctx, "command", None)
+    if command is None:
+        return None
+
+    params = getattr(ctx, "params", {})
+    if not isinstance(params, dict):
+        return None
+
+    callback = getattr(command, "callback", None)
+    if not _is_list_processing_command(callback):
+        return None
+
+    if callback is None:
+        return None
+
+    for name, param in inspect.signature(callback).parameters.items():
+        if name not in params:
+            continue
+        if name in ("ctx", "self", "cls"):
+            continue
+        if _is_list_annotation(param.annotation) and _is_list_value_empty(params[name]):
+            return name
+
+    return None
+
+
+def _render_list_output(values: Iterable[Any], *, delimiter: str) -> str:
+    return delimiter.join(str(item) for item in values)
+
+
 def _needs_human_confirmation(
     policy: SecurityPolicy,
     *,
@@ -283,6 +367,13 @@ class TooliCommand(TyperCommand):
                     callback=_set_output_override(OutputMode.JSONL),
                 ),
                 click.Option(
+                    ["--print0"],
+                    is_flag=True,
+                    help="Emit NUL-delimited output for list results in text/plain modes.",
+                    expose_value=False,
+                    callback=_capture_tooli_flags,
+                ),
+                click.Option(
                     ["--text"],
                     is_flag=True,
                     help="Alias for --output text",
@@ -349,6 +440,13 @@ class TooliCommand(TyperCommand):
                     ["--idempotency-key"],
                     type=str,
                     help="Idempotency key for safe retries.",
+                    expose_value=False,
+                    callback=_capture_tooli_flags,
+                ),
+                click.Option(
+                    ["--null"],
+                    is_flag=True,
+                    help="Parse null-delimited stdin lists for list-processing commands.",
                     expose_value=False,
                     callback=_capture_tooli_flags,
                 ),
@@ -550,6 +648,8 @@ class TooliCommand(TyperCommand):
         no_color = resolve_no_color(ctx)
         command_name = _get_tool_id(ctx)
         idempotency_key = ctx.meta.get("tooli_flag_idempotency_key")
+        list_processing = _is_list_processing_command(self.callback)
+        print0_output = bool(ctx.meta.get("tooli_flag_print0", False))
         is_idempotent = _is_idempotent_command(self.callback)
         start = time.perf_counter()
         timer_active = False
@@ -704,6 +804,13 @@ class TooliCommand(TyperCommand):
 
         try:
             _check_idempotency()
+            if ctx.meta.get("tooli_flag_null"):
+                list_arg = _resolve_null_input_arg(ctx)
+                if list_arg is not None:
+                    parsed = _parse_null_delimited_input()
+                    if parsed:
+                        ctx.params[list_arg] = parsed
+
             if not used_cached_result:
                 _authorize()
                 _enforce_security_policy()
@@ -817,7 +924,11 @@ class TooliCommand(TyperCommand):
             # Continue through envelope path for machine-readable output.
 
         if mode in (OutputMode.TEXT, OutputMode.PLAIN):
-            click.echo(str(result))
+            if list_processing and isinstance(result, Iterable) and not isinstance(result, (dict, str, bytes, bytearray)):
+                delimiter = "\0" if print0_output else "\n"
+                click.echo(_render_list_output(result, delimiter=delimiter), nl=not print0_output)
+            else:
+                click.echo(str(result))
             return result
 
         if mode == OutputMode.JSON:

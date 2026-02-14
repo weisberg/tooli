@@ -232,7 +232,9 @@ Every Tooli command automatically gets:
 --dry-run          Preview without executing
 --yes              Skip confirmation prompts (for automation/agents)
 --no-color         Disable colors (also respects NO_COLOR)
+--print0           Emit NUL-separated output for list types in text/plain modes
 --timeout          Max execution time in seconds
+--null             Parse NUL-delimited list input from stdin (list-processing)
 --schema           Print JSON Schema and exit
 --response-format  concise|detailed
 --help-agent       Token-optimized help for agents
