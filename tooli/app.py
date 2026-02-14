@@ -51,6 +51,30 @@ class Tooli(typer.Typer):
             import click
             click.echo("Generated SKILL.md")
 
+        # MCP group
+        import typer
+        mcp_app = typer.Typer(name="mcp", help="MCP server utilities", hidden=True)
+        self.add_typer(mcp_app)
+
+        @mcp_app.command(name="export")
+        def mcp_export() -> None:
+            """Export MCP tool definitions as JSON."""
+            from tooli.mcp.export import export_mcp_tools
+            import json
+            import click
+            tools = export_mcp_tools(self)
+            click.echo(json.dumps(tools, indent=2))
+
+        @mcp_app.command(name="serve")
+        def mcp_serve(
+            transport: str = typer.Option("stdio", help="MCP transport: stdio|http|sse"),
+            host: str = typer.Option("localhost", help="HTTP/SSE host"),
+            port: int = typer.Option(8080, help="HTTP/SSE port"),
+        ) -> None:
+            """Run the application as an MCP server."""
+            from tooli.mcp.server import serve_mcp
+            serve_mcp(self, transport=transport, host=host, port=port)
+
     def command(
         self,
         name: str | None = None,

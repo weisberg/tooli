@@ -5,20 +5,19 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 if TYPE_CHECKING:
     from tooli.app import Tooli
 
 
 class MCPToolDefinition(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
     description: str
     input_schema: dict[str, Any] = Field(alias="inputSchema")
     annotations: dict[str, Any] | None = None
-
-    class Config:
-        populate_by_name = True
 
 
 def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
