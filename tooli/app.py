@@ -10,6 +10,7 @@ import typer
 
 from tooli.command import TooliCommand
 from tooli.eval.recorder import build_invocation_recorder
+from tooli.auth import AuthContext
 from tooli.input import SecretInput, is_secret_input
 from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
@@ -37,6 +38,7 @@ class Tooli(typer.Typer):
         telemetry_storage_dir: Path | None = None,
         telemetry_retention_days: int = 30,
         security_policy: str | None = None,
+        auth_scopes: list[str] | None = None,
         record: bool | str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -49,6 +51,7 @@ class Tooli(typer.Typer):
         self.skill_auto_generate = skill_auto_generate
         self.permissions = permissions or {}
         self.security_policy = resolve_security_policy(security_policy)
+        self.auth_context = AuthContext.from_env(programmatic_scopes=auth_scopes)
         self.telemetry = telemetry
         self.telemetry_endpoint = telemetry_endpoint
         self.telemetry_storage_dir = telemetry_storage_dir
@@ -200,6 +203,7 @@ class Tooli(typer.Typer):
             setattr(func, "__tooli_telemetry_pipeline__", self.telemetry_pipeline)
             setattr(func, "__tooli_invocation_recorder__", self.invocation_recorder)
             setattr(func, "__tooli_security_policy__", self.security_policy)
+            setattr(func, "__tooli_auth_context__", self.auth_context)
             setattr(func, "__tooli_version__", None if version is None else str(version))
             setattr(func, "__tooli_deprecated__", deprecated)
             setattr(func, "__tooli_deprecated_message__", deprecated_message)

@@ -10,6 +10,8 @@ from typing import Any
 
 import click
 
+from tooli.auth import AuthContext
+
 from tooli.errors import InputError, Suggestion
 
 
@@ -24,6 +26,7 @@ class ToolContext:
     yes: bool = False
     timeout: float | None = None
     response_format: str = "concise"
+    auth: AuthContext | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def confirm(self, message: str, *, default: bool = False, allow_yes_override: bool = True) -> bool:
@@ -91,7 +94,6 @@ def _read_confirmation_response(message: str, stream: io.TextIOBase, *, default:
     if response == "":
         return default
 
-    prompt = f"{message} [Y/n]" if default else f"{message} [y/N]"
     value = response.strip().lower()
     if value == "":
         return default
