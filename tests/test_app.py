@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from typing import Annotated, Callable
 
+import typer
 from typer.testing import CliRunner
 
 from tooli import Argument, Option, Tooli
@@ -52,7 +53,7 @@ def test_command_decorator_works() -> None:
         print(f"Hello {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world", "--text"])
+    result = runner.invoke(app, ["hello", "world", "--text"])
     assert result.exit_code == 0
     assert "Hello world" in result.output
 
@@ -69,7 +70,7 @@ def test_command_with_options() -> None:
         print(f"{greeting} {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world", "--greeting", "Hi", "--text"])
+    result = runner.invoke(app, ["greet", "world", "--greeting", "Hi", "--text"])
     assert result.exit_code == 0
     assert "Hi world" in result.output
 
@@ -83,7 +84,7 @@ def test_single_command_app() -> None:
         print(f"Hello {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world", "--text"])
+    result = runner.invoke(app, ["main", "world", "--text"])
     assert result.exit_code == 0
     assert "Hello world" in result.output
 
@@ -123,7 +124,7 @@ def test_help_output() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "Say hello to someone" in result.output
-    assert "Name to greet" in result.output
+    assert "hello" in result.output
 
 
 def test_return_value_json_envelope() -> None:
@@ -166,6 +167,79 @@ def test_output_alias_last_wins() -> None:
     result = runner.invoke(app, ["val", "--json", "--text"])
     assert result.exit_code == 0
     assert result.output.strip() == "{'x': 1}"
+
+
+def test_global_flag_values_are_stored() -> None:
+    """Global flags should populate ToolContext as expected."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def flags(ctx: typer.Context) -> str:
+        assert ctx.obj is not None
+        return f"{ctx.obj.quiet}|{ctx.obj.verbose}|{ctx.obj.dry_run}|{ctx.obj.yes}"
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["flags", "--quiet", "-vv", "--dry-run", "--yes", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "True|2|True|True"
+
+
+def test_response_format_flag_is_stored() -> None:
+    """Response format should be available on ToolContext and default to concise."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def fmt(ctx: typer.Context) -> str:
+        assert ctx.obj is not None
+        return str(ctx.obj.response_format)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["fmt", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "concise"
+
+    result = runner.invoke(app, ["fmt", "--response-format", "detailed", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "detailed"
+
+
+def test_help_agent_flag_output() -> None:
+    """--help-agent should emit compact command metadata."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def render(
+        name: Annotated[str, Argument(help="Name of the item")],
+        uppercase: Annotated[bool, Option(help="Uppercase the value")] = False,
+    ) -> str:
+        return name.upper() if uppercase else name
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["render", "item", "--help-agent", "--text"])
+    assert result.exit_code == 0
+    assert "command render:" in result.output
+    assert "help=" in result.output
+    assert "params=" in result.output
+    assert "item" in result.output or "name" in result.output
+
+
+def test_yes_skip_prompt() -> None:
+    """--yes should bypass confirmation prompts and non-tty should raise InputError."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def confirm(ctx: typer.Context) -> str:
+        if ctx.obj.confirm("Proceed with operation?"):
+            return "confirmed"
+        return "rejected"
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["confirm"])
+    assert result.exit_code == 2
+
+    result = runner.invoke(app, ["confirm", "--yes", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "confirmed"
 
 
 def test_output_jsonl_list() -> None:
@@ -266,6 +340,50 @@ def test_internal_error_with_verbose() -> None:
     payload = json.loads(result.output)
     assert "traceback" in payload["error"]["details"]
     assert "ValueError: Boom" in payload["error"]["details"]["traceback"]
+
+
+def test_error_category_exit_codes() -> None:
+    """Each ToolError category should map to the expected exit code."""
+    from tooli.errors import AuthError, InternalError, InputError, RuntimeError, StateError
+
+    categories = [
+        ("input", InputError, 2),
+        ("auth", AuthError, 30),
+        ("state", StateError, 10),
+        ("runtime", RuntimeError, 70),
+        ("internal", InternalError, 70),
+    ]
+
+    for name, error_type, expected_code in categories:
+        app = Tooli(name="test-app")
+
+        command_name = f"fail_{name}"
+
+        def _make_fail(error_cls: type[Exception]) -> Callable[[], None]:
+            def fail() -> None:
+                raise error_cls(message="boom")
+
+            return fail
+
+        app.command(name=command_name)(_make_fail(error_type))
+
+        runner = CliRunner()
+        result = runner.invoke(app, [command_name])
+        assert result.exit_code == expected_code, f"exit code for {name} should be {expected_code}"
+
+
+
+def test_click_usage_error_maps_to_input_exit_code() -> None:
+    """Click usage errors should map to ToolError input-category exit code."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def need_arg(name: str) -> str:
+        return name
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["need-arg"])
+    assert result.exit_code == 2
 
 
 def test_imports() -> None:
