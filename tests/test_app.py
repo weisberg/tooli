@@ -284,6 +284,38 @@ def test_output_jsonl_list() -> None:
     assert second["ok"] is True and second["result"] == {"a": 2}
 
 
+def test_print0_list_output() -> None:
+    """TEXT output should support NUL-delimited lists with --print0."""
+    app = Tooli(name="test-app")
+
+    @app.command(list_processing=True)
+    def items() -> list[str]:
+        return ["alpha", "beta", "gamma"]
+
+    @app.command()
+    def noop() -> None:
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["items", "--print0", "--text"])
+    assert result.exit_code == 0
+    assert result.output == "alpha\0beta\0gamma"
+
+
+def test_null_input_parsing_for_list_commands() -> None:
+    """--null should parse NUL-delimited list input for list-processing commands."""
+    app = Tooli(name="test-app")
+
+    @app.command(list_processing=True)
+    def join(values: list[str] | None = None) -> str:
+        return "|".join(values or [])
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["join", "--null", "--text"], input="a\0b\0c\0")
+    assert result.exit_code == 0
+    assert result.output.strip() == "a|b|c"
+
+
 def test_command_timeout() -> None:
     """--timeout should terminate command execution."""
     import time
