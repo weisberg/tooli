@@ -27,6 +27,8 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
     
     tools = []
     for cmd in app.registered_commands:
+        if cmd.hidden:
+            continue
         cmd_id = cmd.name or cmd.callback.__name__
         schema = generate_tool_schema(cmd.callback, name=cmd_id)
         
@@ -34,8 +36,14 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
             "name": cmd_id,
             "description": schema.description,
             "inputSchema": schema.input_schema,
+            "version": schema.version,
         }
-        
+
+        if schema.deprecated:
+            mcp_tool["deprecated"] = True
+            if schema.deprecated_message:
+                mcp_tool["deprecatedMessage"] = schema.deprecated_message
+
         # Add behavioral annotations as MCP hints
         annotations = getattr(cmd.callback, "__tooli_annotations__", None)
         if isinstance(annotations, ToolAnnotation):
