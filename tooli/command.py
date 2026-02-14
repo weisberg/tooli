@@ -19,6 +19,8 @@ from tooli.errors import InputError, InternalError, RuntimeError, ToolError
 from tooli.exit_codes import ExitCode
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
 from tooli.eval.recorder import InvocationRecorder
+from tooli.security.policy import SecurityPolicy
+from tooli.security.sanitizer import sanitize_output
 from tooli.telemetry_pipeline import TelemetryPipeline
 from tooli.output import (
     OutputMode,
@@ -116,15 +118,18 @@ def _get_tool_id(ctx: click.Context) -> str:
 
 def _get_app_meta_from_callback(
     callback: Callable[..., Any] | None,
-) -> tuple[str, str, str, TelemetryPipeline | None, InvocationRecorder | None]:
+) -> tuple[str, str, str, TelemetryPipeline | None, InvocationRecorder | None, SecurityPolicy]:
     if callback is None:
-        return ("tooli", "0.0.0", "auto", None, None)
+        return ("tooli", "0.0.0", "auto", None, None, SecurityPolicy.OFF)
     name = getattr(callback, "__tooli_app_name__", "tooli")
     version = getattr(callback, "__tooli_app_version__", "0.0.0")
     default_output = getattr(callback, "__tooli_default_output__", "auto")
     telemetry_pipeline = getattr(callback, "__tooli_telemetry_pipeline__", None)
     invocation_recorder = getattr(callback, "__tooli_invocation_recorder__", None)
-    return (str(name), str(version), str(default_output), telemetry_pipeline, invocation_recorder)
+    security_policy = getattr(callback, "__tooli_security_policy__", SecurityPolicy.OFF)
+    if not isinstance(security_policy, SecurityPolicy):
+        security_policy = SecurityPolicy.OFF
+    return (str(name), str(version), str(default_output), telemetry_pipeline, invocation_recorder, security_policy)
 
 
 def _serialize_arg_value(value: Any) -> Any:
@@ -142,6 +147,38 @@ def _collect_invocation_args(ctx: click.Context) -> dict[str, Any]:
     if not isinstance(params, dict):
         return {}
     return {str(name): _serialize_arg_value(value) for name, value in params.items()}
+
+
+def _is_destructive_command(callback: Callable[..., Any] | None) -> bool:
+    annotations = getattr(callback, "__tooli_annotations__", None)
+    return bool(getattr(annotations, "destructive", False))
+
+
+def _needs_human_confirmation(
+    policy: SecurityPolicy,
+    *,
+    is_destructive: bool,
+    has_human_in_the_loop: bool,
+    force: bool,
+    yes_override: bool,
+) -> bool:
+    if not is_destructive or policy == SecurityPolicy.OFF:
+        return False
+    if force:
+        return False
+    if policy == SecurityPolicy.STRICT and has_human_in_the_loop:
+        return True
+    return not yes_override
+
+
+def _audit_security_event(ctx: click.Context, *, event: str, details: dict[str, Any]) -> None:
+    payload = {
+        "event": "tooli.security",
+        "type": event,
+        "command": _get_tool_id(ctx),
+        "details": details,
+    }
+    click.echo(json.dumps(payload, sort_keys=True), err=True)
 
 
 def _json_dumps(value: Any) -> str:
@@ -260,6 +297,13 @@ class TooliCommand(TyperCommand):
                     ["--yes", "-y"],
                     is_flag=True,
                     help="Skip interactive confirmation prompts.",
+                    expose_value=False,
+                    callback=_capture_tooli_flags,
+                ),
+                click.Option(
+                    ["--force"],
+                    is_flag=True,
+                    help="Force execution of destructive commands.",
                     expose_value=False,
                     callback=_capture_tooli_flags,
                 ),
@@ -400,7 +444,7 @@ class TooliCommand(TyperCommand):
         return "\n".join(lines)
 
     def invoke(self, ctx: click.Context) -> Any:
-        _, app_version, app_default_output, telemetry_pipeline, invocation_recorder = _get_app_meta_from_callback(
+        _, app_version, app_default_output, telemetry_pipeline, invocation_recorder, security_policy = _get_app_meta_from_callback(
             self.callback
         )
 
@@ -409,6 +453,7 @@ class TooliCommand(TyperCommand):
             quiet=bool(ctx.meta.get("tooli_flag_quiet", False)),
             verbose=int(ctx.meta.get("tooli_flag_verbose", 0)),
             dry_run=bool(ctx.meta.get("tooli_flag_dry_run", False)),
+            force=bool(ctx.meta.get("tooli_flag_force", False)),
             yes=bool(ctx.meta.get("tooli_flag_yes", False)),
             timeout=ctx.meta.get("tooli_flag_timeout"),
             response_format=resolve_response_format(ctx).value,
@@ -460,6 +505,65 @@ class TooliCommand(TyperCommand):
         timer_active = False
         ctx.meta.setdefault("tooli_secret_values", [])
 
+        def _enforce_security_policy() -> None:
+            if security_policy == SecurityPolicy.OFF:
+                return
+
+            is_destructive = _is_destructive_command(self.callback)
+            if not is_destructive:
+                return
+
+            has_human_in_the_loop = bool(getattr(self.callback, "__tooli_human_in_the_loop__", False))
+            confirm_needed = _needs_human_confirmation(
+                policy=security_policy,
+                is_destructive=True,
+                has_human_in_the_loop=has_human_in_the_loop,
+                force=ctx.obj.force,
+                yes_override=ctx.obj.yes,
+            )
+
+            if not confirm_needed:
+                if ctx.obj.force:
+                    _audit_security_event(
+                        ctx,
+                        event="destructive_override",
+                        details={"policy": security_policy.value, "override": "force"},
+                    )
+                elif ctx.obj.yes:
+                    _audit_security_event(
+                        ctx,
+                        event="destructive_override",
+                        details={"policy": security_policy.value, "override": "yes"},
+                    )
+                else:
+                    _audit_security_event(
+                        ctx,
+                        event="destructive_confirmed",
+                        details={"policy": security_policy.value},
+                    )
+                return
+
+            _audit_security_event(
+                ctx,
+                event="destructive_confirmation_required",
+                details={"policy": security_policy.value, "human_in_the_loop": has_human_in_the_loop},
+            )
+            if security_policy == SecurityPolicy.STRICT and has_human_in_the_loop:
+                confirm = ctx.obj.confirm(
+                    message="This command is destructive and requires manual confirmation.",
+                    default=False,
+                    allow_yes_override=False,
+                )
+            else:
+                confirm = ctx.obj.confirm(
+                    message="This command is destructive and requires manual confirmation.",
+                    default=False,
+                )
+
+            if not confirm:
+                _audit_security_event(ctx, event="destructive_denied", details={"policy": security_policy.value})
+                raise InputError(message="Destructive command not confirmed.", code="E2003")
+
         # Handle timeout if specified.
         def _timeout_handler(signum: int, frame: Any) -> None:
             del signum, frame
@@ -501,6 +605,8 @@ class TooliCommand(TyperCommand):
             )
 
         try:
+            _enforce_security_policy()
+
             # Resolve secret arguments before invoking the callback.
             for secret_name in getattr(self, "_tooli_secret_params", []):
                 explicit_value = ctx.params.get(secret_name)
@@ -553,7 +659,15 @@ class TooliCommand(TyperCommand):
                 error=e,
                 exit_code=_normalize_system_exit(e.exit_code),
             )
-            return self._handle_tool_error(ctx, app_version, start, e, mode, no_color)
+            return self._handle_tool_error(
+                ctx,
+                app_version,
+                start,
+                e,
+                mode,
+                no_color,
+                security_policy=security_policy,
+            )
         except SystemExit as e:
             exit_code = _normalize_system_exit(e.code)
             _emit_invocation(status="error", exit_code=exit_code)
@@ -571,6 +685,8 @@ class TooliCommand(TyperCommand):
             return None
 
         result = redact_secret_values(result, ctx.meta.get("tooli_secret_values", []))
+        if security_policy != SecurityPolicy.OFF:
+            result = sanitize_output(result)
         _emit_invocation(status="success", exit_code=0)
         _emit_telemetry(success=True, exit_code=0)
 
@@ -619,6 +735,8 @@ class TooliCommand(TyperCommand):
         error: ToolError,
         mode: OutputMode,
         no_color: bool,
+        *,
+        security_policy: SecurityPolicy = SecurityPolicy.OFF,
     ) -> None:
         secret_values = ctx.meta.get("tooli_secret_values", [])
         if mode in (OutputMode.JSON, OutputMode.JSONL, OutputMode.AUTO) and not click.get_text_stream("stdout").isatty():
@@ -630,12 +748,17 @@ class TooliCommand(TyperCommand):
             env = Envelope(ok=False, result=None, meta=meta)
             out = env.model_dump()
             out["error"] = redact_secret_values(error.to_dict(), secret_values)
+            if security_policy != SecurityPolicy.OFF:
+                out = sanitize_output(out)
             click.echo(_json_dumps(out))
         else:
             message = redact_secret_values(error.message, secret_values)
             suggestion = ""
             if error.suggestion:
                 suggestion = redact_secret_values(error.suggestion.fix, secret_values)
+            if security_policy != SecurityPolicy.OFF:
+                message = sanitize_output(message)
+                suggestion = sanitize_output(suggestion)
             if not no_color:
                 try:
                     from rich.console import Console
