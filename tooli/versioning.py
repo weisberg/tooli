@@ -79,7 +79,8 @@ def _command_version(command: Any) -> str | None:
     callback = getattr(command, "callback", None)
     if callback is None:
         return None
-    raw = getattr(callback, "__tooli_version__", None)
+    from tooli.command_meta import get_command_meta
+    raw = get_command_meta(callback).version
     return None if raw is None else str(raw)
 
 

@@ -21,25 +21,29 @@ def generate_skill_md(app: Tooli) -> str:
     lines.append("## Commands")
     lines.append("")
 
-    # Typer commands are stored in app.registered_commands
-    for cmd in app.registered_commands:
-        cmd_name = cmd.name or cmd.callback.__name__
-        help_text = cmd.help or cmd.callback.__doc__ or ""
-        short_help = help_text.split("\n")[0]
-        lines.append(f"* **{cmd_name}**: {short_help}")
+    tools = app.get_tools()
+    
+    # Synopses
+    for tool_def in tools:
+        if tool_def.hidden:
+            continue
+        short_help = (tool_def.help or tool_def.callback.__doc__ or "").split("\n")[0]
+        lines.append(f"* **{tool_def.name}**: {short_help}")
 
     lines.append("")
 
-    for cmd in app.registered_commands:
-        cmd_name = cmd.name or cmd.callback.__name__
-        help_text = cmd.help or cmd.callback.__doc__ or ""
-
-        lines.append(f"### `{cmd_name}`")
+    for tool_def in tools:
+        if tool_def.hidden:
+            continue
+            
+        lines.append(f"### `{tool_def.name}`")
         lines.append("")
+        help_text = tool_def.help or tool_def.callback.__doc__ or ""
         lines.append(help_text)
         lines.append("")
 
-        annotations = getattr(cmd.callback, "__tooli_annotations__", None)
+        callback = tool_def.callback
+        annotations = getattr(callback, "__tooli_annotations__", None)
         if annotations:
             from tooli.annotations import ToolAnnotation
             hints: list[str] = []
@@ -58,27 +62,27 @@ def generate_skill_md(app: Tooli) -> str:
 
             lines.append("#### Governance")
             lines.append(f"**Annotations**: `{', '.join(hints) if hints else '[]'}`")
-            cost_hint = getattr(cmd.callback, "__tooli_cost_hint__", None)
+            cost_hint = getattr(callback, "__tooli_cost_hint__", None)
             if cost_hint is not None:
                 lines.append(f"**Cost Hint**: `{cost_hint}`")
             else:
                 lines.append("**Cost Hint**: `unspecified`")
 
-            human_in_the_loop = bool(getattr(cmd.callback, "__tooli_human_in_the_loop__", False))
+            human_in_the_loop = bool(getattr(callback, "__tooli_human_in_the_loop__", False))
             lines.append(f"**Human In The Loop**: `{'true' if human_in_the_loop else 'false'}`")
             lines.append("")
 
-        required_scopes = getattr(cmd.callback, "__tooli_auth__", [])
+        required_scopes = getattr(callback, "__tooli_auth__", [])
         if required_scopes:
             lines.append(f"**Required Scopes**: `{', '.join(required_scopes)}`")
 
-        examples = getattr(cmd.callback, "__tooli_examples__", [])
+        examples = getattr(callback, "__tooli_examples__", [])
         if examples:
             lines.append("")
             lines.append("**Examples**:")
             for ex in examples:
                 args = " ".join(ex.get("args", []))
-                lines.append(f"```bash\n{name} {cmd_name} {args}\n```")
+                lines.append(f"```bash\n{name} {tool_def.name} {args}\n```")
                 desc = ex.get("description")
                 if desc:
                     lines.append(f"> {desc}")

@@ -30,6 +30,7 @@ from tooli.telemetry import duration_ms as otel_duration_ms
 from tooli.telemetry import start_command_span
 from tooli.telemetry_pipeline import TelemetryPipeline
 from tooli.annotations import ToolAnnotation
+from tooli.command_meta import CommandMeta, get_command_meta
 from tooli.output import (
     OutputMode,
     parse_output_mode,
@@ -81,9 +82,9 @@ def _capture_tooli_flags(ctx: click.Context, param: click.Parameter, value: Any)
 
 def _detect_secret_parameter_names(callback: Callable[..., Any] | None) -> list[str]:
     """Return callback parameters annotated with SecretInput."""
-    secret_params = getattr(callback, "__tooli_secret_params__", None)
-    if isinstance(secret_params, list):
-        return secret_params
+    meta = get_command_meta(callback)
+    if meta.secret_params:
+        return meta.secret_params
 
     if callback is None:
         return []
@@ -127,17 +128,18 @@ def _get_tool_id(ctx: click.Context) -> str:
 def _get_app_meta_from_callback(
     callback: Callable[..., Any] | None,
 ) -> tuple[str, str, str, TelemetryPipeline | None, InvocationRecorder | None, SecurityPolicy]:
-    if callback is None:
-        return ("tooli", "0.0.0", "auto", None, None, SecurityPolicy.OFF)
-    name = getattr(callback, "__tooli_app_name__", "tooli")
-    version = getattr(callback, "__tooli_app_version__", "0.0.0")
-    default_output = getattr(callback, "__tooli_default_output__", "auto")
-    telemetry_pipeline = getattr(callback, "__tooli_telemetry_pipeline__", None)
-    invocation_recorder = getattr(callback, "__tooli_invocation_recorder__", None)
-    security_policy = getattr(callback, "__tooli_security_policy__", SecurityPolicy.OFF)
+    meta = get_command_meta(callback)
+    security_policy = meta.security_policy
     if not isinstance(security_policy, SecurityPolicy):
         security_policy = SecurityPolicy.OFF
-    return (str(name), str(version), str(default_output), telemetry_pipeline, invocation_recorder, security_policy)
+    return (
+        str(meta.app_name),
+        str(meta.app_version),
+        str(meta.default_output),
+        meta.telemetry_pipeline,
+        meta.invocation_recorder,
+        security_policy,
+    )
 
 
 def _serialize_arg_value(value: Any) -> Any:
@@ -158,52 +160,52 @@ def _collect_invocation_args(ctx: click.Context) -> dict[str, Any]:
 
 
 def _is_destructive_command(callback: Callable[..., Any] | None) -> bool:
-    annotations = getattr(callback, "__tooli_annotations__", None)
-    return bool(getattr(annotations, "destructive", False))
+    ann = get_command_meta(callback).annotations
+    return bool(getattr(ann, "destructive", False))
 
 
 def _is_idempotent_command(callback: Callable[..., Any] | None) -> bool:
-    annotations = getattr(callback, "__tooli_annotations__", None)
-    return bool(getattr(annotations, "idempotent", False))
+    ann = get_command_meta(callback).annotations
+    return bool(getattr(ann, "idempotent", False))
 
 
 def _is_list_processing_command(callback: Callable[..., Any] | None) -> bool:
-    return bool(getattr(callback, "__tooli_list_processing__", False))
+    return get_command_meta(callback).list_processing
 
 
 def _is_paginated_command(callback: Callable[..., Any] | None) -> bool:
-    return bool(getattr(callback, "__tooli_paginated__", False))
+    return get_command_meta(callback).paginated
 
 
 def _extract_annotation_hints(callback: Callable[..., Any] | None) -> dict[str, Any]:
-    annotations = getattr(callback, "__tooli_annotations__", None)
-    if not isinstance(annotations, ToolAnnotation):
+    ann = get_command_meta(callback).annotations
+    if not isinstance(ann, ToolAnnotation):
         return {}
 
     hints: dict[str, Any] = {}
-    if annotations.read_only:
+    if ann.read_only:
         hints["readOnlyHint"] = True
-    if annotations.idempotent:
+    if ann.idempotent:
         hints["idempotentHint"] = True
-    if annotations.destructive:
+    if ann.destructive:
         hints["destructiveHint"] = True
-    if annotations.open_world:
+    if ann.open_world:
         hints["openWorldHint"] = True
     return hints
 
 
 def _annotation_labels(callback: Callable[..., Any] | None) -> list[str]:
-    annotations = getattr(callback, "__tooli_annotations__", None)
-    if not isinstance(annotations, ToolAnnotation):
+    ann = get_command_meta(callback).annotations
+    if not isinstance(ann, ToolAnnotation):
         return []
     labels: list[str] = []
-    if annotations.read_only:
+    if ann.read_only:
         labels.append("read-only")
-    if annotations.idempotent:
+    if ann.idempotent:
         labels.append("idempotent")
-    if annotations.destructive:
+    if ann.destructive:
         labels.append("destructive")
-    if annotations.open_world:
+    if ann.open_world:
         labels.append("open-world")
     return labels
 
@@ -450,13 +452,13 @@ def _build_envelope_meta(
     truncation_message: str | None = None,
 ) -> EnvelopeMeta:
     warnings: list[str] = []
-    callback = getattr(ctx, "command", None)
-    if callback is not None:
-        callback_obj = getattr(callback, "callback", None)
-        if callback_obj is not None and getattr(callback_obj, "__tooli_deprecated__", False):
-            deprecated_message = getattr(callback_obj, "__tooli_deprecated_message__", None)
-            if deprecated_message:
-                warnings.append(str(deprecated_message))
+    command = getattr(ctx, "command", None)
+    if command is not None:
+        callback_obj = getattr(command, "callback", None)
+        meta = get_command_meta(callback_obj)
+        if meta.deprecated:
+            if meta.deprecated_message:
+                warnings.append(str(meta.deprecated_message))
             else:
                 warnings.append("This command is deprecated.")
 
@@ -762,20 +764,18 @@ class TooliCommand(TyperCommand):
             lines.append("params=" + "|".join(TooliCommand._format_param_for_help_agent(p) for p in params))
 
         callback = getattr(ctx.command, "callback", None)
-        required_scopes = getattr(callback, "__tooli_auth__", None)
-        if required_scopes:
-            lines.append("auth=" + ",".join(required_scopes))
+        cb_meta = get_command_meta(callback)
+        if cb_meta.auth:
+            lines.append("auth=" + ",".join(cb_meta.auth))
 
         labels = _annotation_labels(callback)
         if labels:
             lines.append("annotations=" + ",".join(labels))
 
-        cost_hint = getattr(callback, "__tooli_cost_hint__", None) if callback is not None else None
-        if cost_hint:
-            lines.append("cost_hint=" + str(cost_hint))
+        if cb_meta.cost_hint:
+            lines.append("cost_hint=" + str(cb_meta.cost_hint))
 
-        human_in_the_loop = bool(getattr(callback, "__tooli_human_in_the_loop__", False)) if callback is not None else False
-        if human_in_the_loop:
+        if cb_meta.human_in_the_loop:
             lines.append("human_in_the_loop=true")
 
         return "\n".join(lines)
@@ -798,8 +798,9 @@ class TooliCommand(TyperCommand):
         _, app_version, app_default_output, telemetry_pipeline, invocation_recorder, security_policy = _get_app_meta_from_callback(
             self.callback
         )
-        required_scopes = list(getattr(self.callback, "__tooli_auth__", []))
-        auth_context = getattr(self.callback, "__tooli_auth_context__", None)
+        cb_meta = get_command_meta(self.callback)
+        required_scopes = list(cb_meta.auth)
+        auth_context = cb_meta.auth_context
 
         # Initialize ToolContext and store in ctx.obj for callback access.
         ctx.obj = ToolContext(
@@ -824,10 +825,9 @@ class TooliCommand(TyperCommand):
             schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx), required_scopes=required_scopes)
             if self.callback:
                 schema.annotations = _extract_annotation_hints(self.callback)
-                cost_hint = getattr(self.callback, "__tooli_cost_hint__", None)
-                if cost_hint:
-                    schema.cost_hint = str(cost_hint)
-                schema.examples = getattr(self.callback, "__tooli_examples__", [])
+                if cb_meta.cost_hint:
+                    schema.cost_hint = str(cb_meta.cost_hint)
+                schema.examples = list(cb_meta.examples)
 
             click.echo(_json_dumps(schema.model_dump(exclude_none=True)))
             ctx.exit(int(ExitCode.SUCCESS))
@@ -876,7 +876,7 @@ class TooliCommand(TyperCommand):
             if not is_destructive:
                 return
 
-            has_human_in_the_loop = bool(getattr(self.callback, "__tooli_human_in_the_loop__", False))
+            has_human_in_the_loop = cb_meta.human_in_the_loop
             confirm_needed = _needs_human_confirmation(
                 policy=security_policy,
                 is_destructive=True,

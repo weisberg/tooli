@@ -29,28 +29,23 @@ def serve_mcp(
     mcp = FastMCP(name=app.info.name or "tooli-app")
 
     # Register each Tooli command as an MCP tool
-    for cmd in app.registered_commands:
-        if cmd.hidden:
+    for tool_def in app.get_tools():
+        if tool_def.hidden:
             continue
 
-        cmd_id = cmd.name or cmd.callback.__name__
+        cmd_id = tool_def.name
+        callback = tool_def.callback
         
-        # behavioral hints
-        from tooli.annotations import ToolAnnotation
-        annotations = getattr(cmd.callback, "__tooli_annotations__", None)
-        is_read_only = False
-        if isinstance(annotations, ToolAnnotation):
-            is_read_only = annotations.read_only
-
         # Create a wrapper for FastMCP
-        def _make_wrapper(callback: Any) -> Any:
+        def _make_wrapper(cb: Any) -> Any:
             async def wrapper(**kwargs: Any) -> Any:
                 # Execute the callback directly
                 # FastMCP handles JSON serialization of the return value
-                return callback(**kwargs)
+                return cb(**kwargs)
             return wrapper
 
-        mcp.tool(name=cmd_id, description=cmd.help or cmd.callback.__doc__ or "")(_make_wrapper(cmd.callback))
+        description = tool_def.help or tool_def.callback.__doc__ or ""
+        mcp.tool(name=cmd_id, description=description)(_make_wrapper(callback))
 
     # Strict stdout discipline for stdio transport
     if transport == "stdio":
