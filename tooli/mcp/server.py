@@ -17,6 +17,9 @@ def serve_mcp(
     port: int = 8080,
 ) -> None:
     """Run the Tooli app as an MCP server."""
+    if transport not in {"stdio", "http", "sse"}:
+        raise ValueError(f"Unsupported MCP transport: {transport}")
+
     try:
         from fastmcp import FastMCP
     except ImportError:
