@@ -93,20 +93,20 @@ Tooli turns a Typer app into a **multi-interface tool**:
 
 ### 6.1 Dual-Path Pipeline
 
-Tooli intercepts Typer's pipeline at a critical junction. The same type annotations that Typer routes through `get_click_type()` for CLI parameters are simultaneously routed through Pydantic's `model_json_schema()` for JSON Schema definitions compatible with MCP's `inputSchema` and OpenAI's function-calling format.
+Tooli's dual-path pipeline routes the same type annotations through two parallel paths. The CLI path produces human-friendly commands; the schema path produces JSON Schema definitions compatible with MCP's `inputSchema` and OpenAI's function-calling format. The underlying CLI framework (currently Typer/Click) is an implementation detail — the public API is Tooli-native.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   @agent.command()                       │
+│                    @app.command()                        │
 │              Python function + type hints                │
 └───────────┬──────────────────────┬──────────────────────┘
             │                      │
             ▼                      ▼
    ┌────────────────┐    ┌──────────────────┐
-   │  Typer Pipeline │    │  Schema Pipeline  │
-   │  get_click_type │    │  func_metadata()  │
-   │  → Click params │    │  → Pydantic model │
-   │  → CLI parser   │    │  → JSON Schema    │
+   │  CLI Pipeline   │    │  Schema Pipeline  │
+   │  → CLI params   │    │  func_metadata()  │
+   │  → CLI parser   │    │  → Pydantic model │
+   │  → Completions  │    │  → JSON Schema    │
    └───────┬────────┘    └────────┬──────────┘
            │                      │
            ▼                      ▼
@@ -152,7 +152,7 @@ Tooli intercepts Typer's pipeline at a critical junction. The same type annotati
 
 ### 6.3 Key Architectural Decisions
 
-1. **Subclass, don't fork.** Tooli subclasses `Typer`, `TyperCommand`, and `TyperGroup` via the `cls` parameter. This ensures compatibility with the Typer ecosystem and future updates.
+1. **Library-first API.** The public surface is Tooli-native — users import `Tooli`, not framework internals. Internally, Tooli subclasses Typer's `Typer`, `TyperCommand`, and `TyperGroup` via the `cls` parameter, ensuring ecosystem compatibility while keeping the implementation detail hidden.
 
 2. **Pydantic as the schema backbone.** `inspect.signature()` -> dynamic Pydantic `BaseModel` -> `model_json_schema()` is the industry-standard path from type hints to JSON Schema (used by FastAPI, FastMCP, Instructor). Tooli adopts it directly, with `$ref` dereferencing for broad client compatibility.
 
@@ -166,15 +166,15 @@ Tooli intercepts Typer's pipeline at a critical junction. The same type annotati
 
 ## 7. Core API Design
 
-### 7.1 The `AgentTyper` Class
+### 7.1 The `Tooli` Class
 
 ```python
-from tooli import AgentTyper, Annotated, Option, Argument
+from tooli import Tooli, Annotated, Option, Argument
 from tooli.annotations import ReadOnly, Idempotent, Destructive
 from pathlib import Path
 from enum import Enum
 
-agent = AgentTyper(
+app = Tooli(
     name="file-tools",
     description="File manipulation utilities for development workflows",
     version="1.2.0",
@@ -188,7 +188,7 @@ agent = AgentTyper(
 ### 7.2 Command Decorator with Agent Metadata
 
 ```python
-@agent.command(
+@app.command(
     annotations=ReadOnly | Idempotent,  # Behavioral hints for agents
     cost_hint="low",                    # "low"|"medium"|"high"
     human_in_the_loop=False,            # Force human confirmation in agent mode
@@ -238,7 +238,7 @@ Aligned with MCP tool annotations:
 
 ### 7.4 Return Value Routing
 
-Standard Typer commands print to stdout and return `None`. Tooli commands return typed values. The framework intercepts the return value and routes it:
+Standard CLI frameworks print to stdout and return `None`. Tooli commands return typed values. The framework intercepts the return value and routes it:
 
 - **Human mode** (TTY, no `--output` flag): Render with Rich tables, formatted text, colors
 - **JSON mode** (`--output json` or piped): Serialize return value as JSON to stdout
@@ -461,12 +461,12 @@ The suggestion field gives agents concrete recovery steps instead of forcing gue
 ### 11.1 Usage
 
 ```python
-agent = AgentTyper(name="file-tools")
+app = Tooli(name="file-tools")
 
 # ... define commands as normal ...
 
 if __name__ == "__main__":
-    agent()  # Normal CLI mode
+    app()  # Normal CLI mode
 
 # MCP server mode:
 # $ file-tools mcp serve --transport stdio
@@ -478,7 +478,7 @@ if __name__ == "__main__":
 | Tooli Concept | MCP Concept |
 |---|---|
 | CLI command (with side effects) | MCP Tool |
-| Read-only command (`@agent.resource()`) | MCP Resource |
+| Read-only command (`@app.resource()`) | MCP Resource |
 | Prompt template | MCP Prompt |
 | Type hints + docstrings | `inputSchema` / `outputSchema` |
 | Behavioral annotations | Tool annotations (`readOnlyHint`, `destructiveHint`) |
@@ -559,7 +559,7 @@ Agents struggle with the distinction between local files and streamed data. They
 ```python
 from tooli import StdinOr
 
-@agent.command()
+@app.command()
 def process(
     input_data: Annotated[StdinOr[Path], Argument(help="Input file, URL, or stdin")],
 ) -> dict:
@@ -612,7 +612,7 @@ Minimal footprint for fast startup (agents may call tools thousands of times):
 
 ### Phase 1: Core Foundation (MVP)
 
-1. `AgentTyper` class extending `Typer`
+1. `Tooli` core class
 2. Canonical output mode + aliases (`--output`, `--json`, `--jsonl`, `--text`, `--plain`)
 3. Dual-channel output routing (TTY detection, JSON/JSONL/human modes)
 4. Output envelope for structured responses (success + failure)
@@ -686,7 +686,6 @@ Minimal footprint for fast startup (agents may call tools thousands of times):
 2. **Cross-platform prompt handling** — `/dev/tty` isn't universal; how to guarantee prompts don't steal stdin on Windows?
 3. **MCP server strategy** — implement directly using MCP SDK, or interoperate with FastMCP patterns?
 4. **HTTP deployment profile** — WSGI/ASGI adapter boundary, auth middleware model, and default rate-limiting behavior.
-5. **Naming** — `AgentTyper` vs `AgentApp` vs `ToolApp` for the primary class?
 
 ---
 

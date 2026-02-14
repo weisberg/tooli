@@ -2,7 +2,9 @@
 
 The agent-native CLI framework for Python. Write one function, get a CLI, an MCP tool, and a self-documenting schema.
 
-Tooli extends [Typer](https://typer.tiangolo.com/) so that every decorated command is simultaneously human-friendly (Rich output, shell completions) and machine-consumable (JSON schemas, structured output, MCP compatibility). No separate "agent version" of your tool required.
+The name comes from "tool" + "CLI" = "tooli".
+
+Tooli turns typed Python functions into CLI commands that are simultaneously human-friendly (Rich output, shell completions) and machine-consumable (JSON schemas, structured output, MCP compatibility). No separate "agent version" of your tool required.
 
 ## Why Tooli?
 
@@ -35,17 +37,17 @@ pip install tooli
 ## Quick Start
 
 ```python
-from tooli import AgentTyper, Annotated, Option, Argument
+from tooli import Tooli, Annotated, Option, Argument
 from tooli.annotations import ReadOnly, Idempotent
 from pathlib import Path
 
-agent = AgentTyper(
+app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
     version="1.0.0",
 )
 
-@agent.command(
+@app.command(
     annotations=ReadOnly | Idempotent,
     examples=[
         {"args": ["--pattern", "*.py", "--root", "/project"],
@@ -64,7 +66,7 @@ def find_files(
     return results
 
 if __name__ == "__main__":
-    agent()
+    app()
 ```
 
 ### Human usage
@@ -175,7 +177,7 @@ The `StdinOr[T]` type makes files, URLs, and piped data interchangeable:
 ```python
 from tooli import StdinOr
 
-@agent.command()
+@app.command()
 def process(
     input_data: Annotated[StdinOr[Path], Argument(help="Input file, URL, or stdin")],
 ) -> dict:
@@ -200,6 +202,7 @@ Every Tooli command automatically gets:
 --quiet, -q        Suppress non-essential output
 --verbose, -v      Increase verbosity (-vvv)
 --dry-run          Preview without executing
+--yes              Skip confirmation prompts (for automation/agents)
 --no-color         Disable colors (also respects NO_COLOR)
 --timeout          Max execution time in seconds
 --schema           Print JSON Schema and exit
@@ -209,15 +212,15 @@ Every Tooli command automatically gets:
 
 ## Architecture
 
-Tooli builds on Typer's decorator pipeline, adding a parallel schema generation path:
+Tooli builds on the Python typing + decorator pipeline, adding a parallel schema generation path:
 
 ```
-         @agent.command()
+          @app.command()
      Python function + type hints
             │              │
             ▼              ▼
-     Typer Pipeline   Schema Pipeline
-     → Click params   → Pydantic model
+      CLI Pipeline    Schema Pipeline
+     → CLI params     → Pydantic model
      → CLI parser     → JSON Schema
             │              │
             ▼              ▼
@@ -227,7 +230,7 @@ Tooli builds on Typer's decorator pipeline, adding a parallel schema generation 
 ```
 
 Key design decisions:
-- **Subclass, don't fork** — extends Typer via `cls` parameter for full ecosystem compatibility
+- **Library-first API** — the public surface is Tooli-native (no framework objects leaked into user code)
 - **Pydantic schemas** — same pipeline as FastAPI and FastMCP
 - **Functions stay callable** — no mutation; test with `CliRunner` or call directly as Python
 
