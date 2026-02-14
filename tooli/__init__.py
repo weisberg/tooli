@@ -1,7 +1,17 @@
-"""
-tooli - A basic Python utility module
-"""
+"""tooli — The agent-native CLI framework for Python."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from typer import Argument, Option
+
+from tooli.app import Tooli
 
 __version__ = "0.1.0"
-__author__ = "tooli developers"
-__all__ = []
+__all__ = [
+    "Annotated",
+    "Argument",
+    "Option",
+    "Tooli",
+]
