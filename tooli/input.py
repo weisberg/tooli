@@ -7,7 +7,8 @@ import warnings
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, Generic, Iterable, TypeVar
+from collections.abc import Iterable
+from typing import Any, Generic, TypeVar
 
 import click
 

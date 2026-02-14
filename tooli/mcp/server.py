@@ -23,7 +23,8 @@ def serve_mcp(
     try:
         from fastmcp import FastMCP
     except ImportError:
-        print("Error: fastmcp is not installed. Install it with 'pip install fastmcp'.")
+        import click
+        click.echo("Error: fastmcp is not installed. Install it with 'pip install fastmcp'.", err=True)
         sys.exit(1)
 
     mcp = FastMCP(name=app.info.name or "tooli-app")

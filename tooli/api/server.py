@@ -96,8 +96,9 @@ def serve_api(app: Tooli, host: str = "localhost", port: int = 8000) -> None:
     try:
         import uvicorn
     except ImportError:
-        print("Error: uvicorn is not installed. Install it with 'pip install uvicorn'.")
         import sys
+        import click
+        click.echo("Error: uvicorn is not installed. Install it with 'pip install uvicorn'.", err=True)
         sys.exit(1)
 
     starlette_app = build_app(app)
