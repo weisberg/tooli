@@ -24,6 +24,7 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
     """Export all registered commands as MCP tool definitions."""
     from tooli.schema import generate_tool_schema
     from tooli.annotations import ToolAnnotation
+    from tooli.command_meta import get_command_meta
     
     tools = []
     for tool_def in app.get_tools():
@@ -32,6 +33,7 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
         
         callback = tool_def.callback
         schema = generate_tool_schema(callback, name=tool_def.name)
+        meta = get_command_meta(callback)
         
         mcp_tool = {
             "name": tool_def.name,
@@ -45,11 +47,11 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
             if schema.deprecated_message:
                 mcp_tool["deprecatedMessage"] = schema.deprecated_message
 
-        if required_scopes := getattr(callback, "__tooli_auth__", None):
+        if required_scopes := meta.auth:
             mcp_tool["auth"] = list(required_scopes)
 
         # Add behavioral annotations as MCP hints
-        annotations = getattr(callback, "__tooli_annotations__", None)
+        annotations = meta.annotations
         if isinstance(annotations, ToolAnnotation):
             hints = {}
             if annotations.read_only: hints["readOnlyHint"] = True

@@ -38,6 +38,7 @@ class CommandMeta:
     list_processing: bool = False
     paginated: bool = False
     version: str | None = None
+    hidden: bool = False
     deprecated: bool = False
     deprecated_message: str | None = None
     secret_params: list[str] = field(default_factory=list)

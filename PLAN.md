@@ -346,17 +346,17 @@ Serve a Tooli app as an MCP server over stdio transport.
 
 ---
 
-### Issue #18: MCP HTTP server mode
+### Issue #18: MCP HTTP server mode [DONE]
 
 **Labels:** `phase-2`, `mcp`
 
 Add HTTP transport option for the MCP server.
 
 **Acceptance criteria:**
-- [ ] `mcp serve --transport http --port 8080` starts an HTTP-based MCP server
-- [ ] Uses `fastmcp` HTTP transport (or SSE, depending on fastmcp capabilities)
-- [ ] Same tool surface as stdio mode
-- [ ] Tests: start HTTP server, send tool call via HTTP, verify response
+- [x] `mcp serve --transport http --port 8080` starts an HTTP-based MCP server
+- [x] Uses `fastmcp` HTTP transport (or SSE, depending on fastmcp capabilities)
+- [x] Same tool surface as stdio mode
+- [x] Tests: start HTTP server, send tool call via HTTP, verify response
 
 **Depends on:** #17
 
@@ -432,55 +432,55 @@ Surface behavioral annotations (read-only, destructive, idempotent, cost_hint) i
 
 ---
 
-### Issue #23: llms.txt documentation generation
+### Issue #23: llms.txt documentation generation [DONE]
 
 **Labels:** `phase-2`, `docs`
 
 Generate llms.txt and llms-full.txt from app introspection.
 
 **Acceptance criteria:**
-- [ ] `tooli/docs/llms_txt.py`: `generate_llms_txt(app) -> str` and `generate_llms_full_txt(app) -> str`
-- [ ] Built-in `docs llms` subcommand
-- [ ] `llms.txt`: curated navigation — tool name, purpose, command list with one-line descriptions, links to full docs
-- [ ] `llms-full.txt`: expanded docs — full parameter details, examples, error codes, schemas
-- [ ] Follows the [llms.txt](https://llmstxt.org/) specification structure
-- [ ] Tests: generate both files for a multi-command app, verify structure
+- [x] `tooli/docs/llms_txt.py`: `generate_llms_txt(app) -> str` and `generate_llms_full_txt(app) -> str`
+- [x] Built-in `docs llms` subcommand
+- [x] `llms.txt`: curated navigation — tool name, purpose, command list with one-line descriptions, links to full docs
+- [x] `llms-full.txt`: expanded docs — full parameter details, examples, error codes, schemas
+- [x] Follows the [llms.txt](https://llmstxt.org/) specification structure
+- [x] Tests: generate both files for a multi-command app, verify structure
 
 **Depends on:** #13
 
 ---
 
-### Issue #24: Unix man page generation
+### Issue #24: Unix man page generation [DONE]
 
 **Labels:** `phase-2`, `docs`
 
 Generate man pages from command metadata.
 
 **Acceptance criteria:**
-- [ ] `tooli/docs/man.py`: `generate_man_page(app) -> str`
-- [ ] Built-in `docs man` subcommand
-- [ ] Output in standard man page format (roff/troff) or plain text with man-page conventions
-- [ ] Includes: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXIT CODES, EXAMPLES, SEE ALSO
-- [ ] Content is consistent with `--help`, `--schema`, and SKILL.md
-- [ ] Tests: generate man page, verify required sections are present
+- [x] `tooli/docs/man.py`: `generate_man_page(app) -> str`
+- [x] Built-in `docs man` subcommand
+- [x] Output in standard man page format (roff/troff) or plain text with man-page conventions
+- [x] Includes: NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXIT CODES, EXAMPLES, SEE ALSO
+- [x] Content is consistent with `--help`, `--schema`, and SKILL.md
+- [x] Tests: generate man page, verify required sections are present
 
 **Depends on:** #13
 
 ---
 
-### Issue #25: Transform pipeline — namespacing and filtering
+### Issue #25: Transform pipeline — namespacing and filtering [DONE]
 
 **Labels:** `phase-2`, `architecture`
 
 Implement the transform layer that modifies tool surfaces before they're exposed.
 
 **Acceptance criteria:**
-- [ ] `tooli/transforms.py`: `Transform` base class with `apply(tools: list[ToolDef]) -> list[ToolDef]`
-- [ ] `NamespaceTransform`: adds a prefix to tool names (e.g., `git_commit`, `fs_read`)
-- [ ] `VisibilityTransform`: filters tools by tags (e.g., show only `agent`-tagged tools, hide `internal`-tagged)
-- [ ] `Tooli.with_transforms(*transforms)` returns a new app view with transforms applied
-- [ ] Transforms affect: MCP export, schema export, SKILL.md generation, `--help` output
-- [ ] Tests: apply namespace + visibility transforms, verify tool names and filtering
+- [x] `tooli/transforms.py`: `Transform` base class with `apply(tools: list[ToolDef]) -> list[ToolDef]`
+- [x] `NamespaceTransform`: adds a prefix to tool names (e.g., `git_commit`, `fs_read`)
+- [x] `VisibilityTransform`: filters tools by tags (e.g., show only `agent`-tagged tools, hide `internal`-tagged)
+- [x] `Tooli.with_transforms(*transforms)` returns a new app view with transforms applied
+- [x] Transforms affect: MCP export, schema export, SKILL.md generation, `--help` output
+- [x] Tests: apply namespace + visibility transforms, verify tool names and filtering
 
 **Depends on:** #16
 
@@ -502,20 +502,20 @@ Support safe list processing with null delimiters for bash interop.
 
 ---
 
-### Issue #27: OpenAPI schema export and HTTP serve mode
+### Issue #27: OpenAPI schema export and HTTP serve mode [DONE]
 
 **Labels:** `phase-2`, `api`
 
 Generate OpenAPI schemas and optionally serve commands as an HTTP API.
 
 **Acceptance criteria:**
-- [ ] `tooli/api/openapi.py`: `generate_openapi_schema(app) -> dict` producing valid OpenAPI 3.1 spec
-- [ ] Each command becomes a POST endpoint; parameters map to request body schema
-- [ ] Response schema matches the output envelope
-- [ ] Built-in `api export-openapi` subcommand
-- [ ] Built-in `api serve --port 8000` subcommand using a lightweight ASGI server (e.g., uvicorn + Starlette, optional dependency)
-- [ ] HTTP responses preserve envelope/error semantics from `--output json`
-- [ ] Tests: verify OpenAPI schema validity, verify HTTP endpoint returns correct envelope
+- [x] `tooli/api/openapi.py`: `generate_openapi_schema(app) -> dict` producing valid OpenAPI 3.1 spec
+- [x] Each command becomes a POST endpoint; parameters map to request body schema
+- [x] Response schema matches the output envelope
+- [x] Built-in `api export-openapi` subcommand
+- [x] Built-in `api serve --port 8000` subcommand using a lightweight ASGI server (e.g., uvicorn + Starlette, optional dependency)
+- [x] HTTP responses preserve envelope/error semantics from `--output json`
+- [x] Tests: verify OpenAPI schema validity, verify HTTP endpoint returns correct envelope
 
 **Depends on:** #10, #5
 
@@ -545,75 +545,75 @@ Phase 3 adds enterprise and ecosystem features: provider system, versioning, obs
 
 ---
 
-### Issue #29: Provider system — local and filesystem providers
+### Issue #29: Provider system — local and filesystem providers [DONE]
 
 **Labels:** `phase-3`, `architecture`
 
 Implement the provider abstraction for sourcing tools from multiple locations.
 
 **Acceptance criteria:**
-- [ ] `tooli/providers/base.py`: `Provider` abstract base class with `get_tools() -> list[ToolDef]`
-- [ ] `tooli/providers/local.py`: `LocalProvider` — sources tools from `@app.command()` decorated functions (current default behavior)
-- [ ] `tooli/providers/filesystem.py`: `FileSystemProvider` — loads tool modules from a directory path, with optional hot-reloading (via file watcher) for development
-- [ ] `Tooli.add_provider(provider)` method to register additional providers
-- [ ] Tests: register tools via both providers, verify they appear in schema/help/MCP export
+- [x] `tooli/providers/base.py`: `Provider` abstract base class with `get_tools() -> list[ToolDef]`
+- [x] `tooli/providers/local.py`: `LocalProvider` — sources tools from `@app.command()` decorated functions (current default behavior)
+- [x] `tooli/providers/filesystem.py`: `FileSystemProvider` — loads tool modules from a directory path, with optional hot-reloading (via file watcher) for development
+- [x] `Tooli.add_provider(provider)` method to register additional providers
+- [x] Tests: register tools via both providers, verify they appear in schema/help/MCP export
 
 **Depends on:** #25
 
 ---
 
-### Issue #30: Tool versioning
+### Issue #30: Tool versioning [DONE]
 
 **Labels:** `phase-3`, `core`
 
 Support versioning of individual tools.
 
 **Acceptance criteria:**
-- [ ] `@app.command(version="1.0.0")` decorator argument
-- [ ] Default behavior: expose the latest version of each tool
-- [ ] `VersionFilter` transform: filter tools to a specific version range
-- [ ] Schema export includes tool version
-- [ ] Deprecation support: `@app.command(deprecated=True, deprecated_message="Use find-files-v2 instead")`
-- [ ] Tests: register multiple versions of a tool, verify default latest, verify version filtering
+- [x] `@app.command(version="1.0.0")` decorator argument
+- [x] Default behavior: expose the latest version of each tool
+- [x] `VersionFilter` transform: filter tools to a specific version range
+- [x] Schema export includes tool version
+- [x] Deprecation support: `@app.command(deprecated=True, deprecated_message="Use find-files-v2 instead")`
+- [x] Tests: register multiple versions of a tool, verify default latest, verify version filtering
 
 **Depends on:** #25
 
 ---
 
-### Issue #31: Dry-run mode framework support
+### Issue #31: Dry-run mode framework support [DONE]
 
 **Labels:** `phase-3`, `core`
 
 Elevate `--dry-run` from a simple flag to a framework-supported pattern.
 
 **Acceptance criteria:**
-- [ ] `tooli/dry_run.py`: `DryRunRecorder` context manager that captures planned actions
-- [ ] Helper decorator `@dry_run_support` that automatically returns the action plan when `--dry-run` is active
-- [ ] Action plan format: list of `{"action": "create_file", "target": "/path", "details": {...}}` objects
-- [ ] In JSON mode, dry-run output uses the standard envelope with `"dry_run": true` in meta
-- [ ] Tests: command with dry-run support returns action plan instead of executing
+- [x] `tooli/dry_run.py`: `DryRunRecorder` context manager that captures planned actions
+- [x] Helper decorator `@dry_run_support` that automatically returns the action plan when `--dry-run` is active
+- [x] Action plan format: list of `{"action": "create_file", "target": "/path", "details": {...}}` objects
+- [x] In JSON mode, dry-run output uses the standard envelope with `"dry_run": true` in meta
+- [x] Tests: command with dry-run support returns action plan instead of executing
 
 **Depends on:** #6
 
 ---
 
-### Issue #32: Agent evaluation harness
+### Issue #32: Agent evaluation harness [DONE]
 
 **Labels:** `phase-3`, `observability`
 
 Built-in tooling to record and analyze agent-tool interactions.
 
 **Acceptance criteria:**
-- [ ] `tooli/eval/recorder.py`: `InvocationRecorder` that logs each command invocation (command, args, result status, duration, error code) to a JSONL file
-- [ ] Enable via `TOOLI_RECORD=path/to/log.jsonl` env var or `Tooli(record=True)`
-- [ ] `tooli/eval/analyzer.py`: `analyze_invocations(log_path)` that reports:
+- [x] `tooli/eval/recorder.py`: `InvocationRecorder` that logs each command invocation (command, args, result status, duration, error code) to a JSONL file
+- [x] Enable via `TOOLI_RECORD=path/to/log.jsonl` env var or `Tooli(record=True)`
+- [x] `tooli/eval/analyzer.py`: `analyze_invocations(log_path)` that reports:
   - Total invocations per command
   - Invalid parameter rate per command
   - Most common error codes
   - Redundant/duplicate invocations
   - Average duration per command
-- [ ] Built-in `eval analyze` subcommand
-- [ ] Tests: record invocations, run analyzer, verify report accuracy
+- [x] Built-in `eval analyze` subcommand
+- [x] Tests: record invocations, run analyzer, verify report accuracy
 
 **Depends on:** #5
 
@@ -636,20 +636,20 @@ Add optional OpenTelemetry instrumentation.
 
 ---
 
-### Issue #34: Security policy modes and output sanitization
+### Issue #34: Security policy modes and output sanitization [DONE]
 
 **Labels:** `phase-3`, `security`
 
 Implement the security middleware for prompt injection resistance and policy enforcement.
 
 **Acceptance criteria:**
-- [ ] `tooli/security/sanitizer.py`: output sanitizer that strips ANSI escape codes, control characters, and known injection patterns from structured output fields
-- [ ] `tooli/security/policy.py`: `SecurityPolicy` with modes `off`, `standard` (default), `strict`
+- [x] `tooli/security/sanitizer.py`: output sanitizer that strips ANSI escape codes, control characters, and known injection patterns from structured output fields
+- [x] `tooli/security/policy.py`: `SecurityPolicy` with modes `off`, `standard` (default), `strict`
   - `standard`: sanitize output, require `--force`/`--yes` for destructive commands
   - `strict`: all of standard + `human_in_the_loop` overrides `--yes` for destructive commands
-- [ ] Configurable via `Tooli(security_policy="standard")` or `TOOLI_SECURITY_POLICY` env var
-- [ ] Audit events: emit structured log entries to stderr for destructive actions, confirmation overrides, and policy denials
-- [ ] Tests: verify sanitization strips control characters, verify destructive command requires confirmation, verify strict mode blocks `--yes` override
+- [x] Configurable via `Tooli(security_policy="standard")` or `TOOLI_SECURITY_POLICY` env var
+- [x] Audit events: emit structured log entries to stderr for destructive actions, confirmation overrides, and policy denials
+- [x] Tests: verify sanitization strips control characters, verify destructive command requires confirmation, verify strict mode blocks `--yes` override
 
 **Depends on:** #7, #15
 
@@ -672,50 +672,50 @@ Add scope-based authorization to commands.
 
 ---
 
-### Issue #36: Cross-platform prompt safety (`/dev/tty` and `CON`)
+### Issue #36: Cross-platform prompt safety (`/dev/tty` and `CON`) [DONE]
 
 **Labels:** `phase-3`, `core`, `input`
 
 Upgrade interactive prompt handling beyond the basic `--yes` flag (Phase 1, Issue #6) to support cross-platform TTY separation — reading prompts from `/dev/tty` or `CON` when stdin is a data pipe.
 
 **Acceptance criteria:**
-- [ ] When stdin is a data pipe and a command needs user confirmation, read from `/dev/tty` (Unix) or `CON` (Windows) instead of stdin
-- [ ] Graceful fallback: if `/dev/tty` / `CON` is unavailable, raise `InputError` with clear message
-- [ ] Tests: verify prompt reads from TTY device when stdin is piped (Unix), verify Windows `CON` path, verify fallback error
+- [x] When stdin is a data pipe and a command needs user confirmation, read from `/dev/tty` (Unix) or `CON` (Windows) instead of stdin
+- [x] Graceful fallback: if `/dev/tty` / `CON` is unavailable, raise `InputError` with clear message
+- [x] Tests: verify prompt reads from TTY device when stdin is piped (Unix), verify Windows `CON` path, verify fallback error
 
 **Depends on:** #6, #7
 
 ---
 
-### Issue #37: Secrets handling (`--secret-file` pattern)
+### Issue #37: Secrets handling (`--secret-file` pattern) [DONE]
 
 **Labels:** `phase-3`, `security`
 
 Provide a safe pattern for passing secrets to commands.
 
 **Acceptance criteria:**
-- [ ] `tooli/input.py`: `SecretInput` type for parameters that accept secrets
-- [ ] Resolution: `--secret-file path` reads from file, `--secret-stdin` reads from stdin, `TOOLI_SECRET_*` env vars (with deprecation warning about env var security)
-- [ ] Secret values are never logged, never included in structured output, never written to eval recordings
-- [ ] Redaction in verbose/debug output: replace with `***REDACTED***`
-- [ ] Tests: verify secret is accessible in command, verify it's redacted in all output channels
+- [x] `tooli/input.py`: `SecretInput` type for parameters that accept secrets
+- [x] Resolution: `--secret-file path` reads from file, `--secret-stdin` reads from stdin, `TOOLI_SECRET_*` env vars (with deprecation warning about env var security)
+- [x] Secret values are never logged, never included in structured output, never written to eval recordings
+- [x] Redaction in verbose/debug output: replace with `***REDACTED***`
+- [x] Tests: verify secret is accessible in command, verify it's redacted in all output channels
 
 **Depends on:** #9, #34
 
 ---
 
-### Issue #38: Telemetry pipeline (opt-in)
+### Issue #38: Telemetry pipeline (opt-in) [DONE]
 
 **Labels:** `phase-3`, `observability`
 
 Optional, opt-in usage telemetry for tool developers.
 
 **Acceptance criteria:**
-- [ ] `tooli/telemetry_pipeline.py`: anonymous usage metrics (command names, error rates, durations — no arguments, no output data)
-- [ ] Disabled by default; enabled only via explicit `TOOLI_TELEMETRY=true` or `Tooli(telemetry=True)`
-- [ ] Clear documentation of what is collected and retention policy
-- [ ] Local-only by default (writes to `~/.config/tooli/telemetry/`); remote endpoint is opt-in and configurable
-- [ ] Tests: verify disabled by default, verify no data collected when off, verify data shape when on
+- [x] `tooli/telemetry_pipeline.py`: anonymous usage metrics (command names, error rates, durations — no arguments, no output data)
+- [x] Disabled by default; enabled only via explicit `TOOLI_TELEMETRY=true` or `Tooli(telemetry=True)`
+- [x] Clear documentation of what is collected and retention policy
+- [x] Local-only by default (writes to `~/.config/tooli/telemetry/`); remote endpoint is opt-in and configurable
+- [x] Tests: verify disabled by default, verify no data collected when off, verify data shape when on
 
 **Depends on:** #15
 
@@ -726,20 +726,20 @@ Optional, opt-in usage telemetry for tool developers.
 Each phase has a definition-of-done gate before the next phase begins:
 
 ### Phase 1 Gate
-- [ ] All Phase 1 issues are merged
-- [ ] Contract tests pass: schema snapshot, JSON envelope snapshot, help output snapshot
-- [ ] stdin/file parity tests pass on Linux and macOS
-- [ ] Cold startup p95 <= 120ms (measured in CI)
-- [ ] A sample multi-command app demonstrates all Phase 1 features
+- [x] All Phase 1 issues are merged
+- [x] Contract tests pass: schema snapshot, JSON envelope snapshot, help output snapshot
+- [x] stdin/file parity tests pass on Linux and macOS
+- [x] Cold startup p95 <= 120ms (measured in CI)
+- [x] A sample multi-command app demonstrates all Phase 1 features
 
 ### Phase 2 Gate
-- [ ] All Phase 2 issues are merged
-- [ ] MCP server passes compliance tests with at least one MCP client (Claude Desktop or similar)
-- [ ] Generated SKILL.md, llms.txt, and man page are verified against a reference app
-- [ ] OpenAPI schema validates with an OpenAPI linter
+- [x] All Phase 2 issues are merged
+- [x] MCP server passes compliance tests with at least one MCP client (Claude Desktop or similar)
+- [x] Generated SKILL.md, llms.txt, and man page are verified against a reference app
+- [x] OpenAPI schema validates with an OpenAPI linter
 
 ### Phase 3 Gate
-- [ ] All Phase 3 issues are merged
-- [ ] Security policy tests pass (standard + strict modes)
-- [ ] Evaluation harness produces accurate reports on a recorded session
-- [ ] Cross-platform tests pass on Linux, macOS, and Windows CI runners
+- [x] All Phase 3 issues are merged
+- [x] Security policy tests pass (standard + strict modes)
+- [x] Evaluation harness produces accurate reports on a recorded session
+- [x] Cross-platform tests pass on Linux, macOS, and Windows CI runners

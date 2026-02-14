@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -87,7 +86,7 @@ def build_app(app: Tooli) -> Any:
 
             return handler
 
-        routes.append(Route(f"/{cmd_id}", await make_handler(tool), methods=["POST"]))
+        routes.append(Route(f"/{cmd_id}", make_handler(tool), methods=["POST"]))
 
     return Starlette(debug=True, routes=routes)
 

@@ -69,8 +69,8 @@ class FileSystemProvider(Provider):
             # Look for Tooli command callbacks in the module.
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                meta = getattr(attr, "__tooli_meta__", None)
-                if not callable(attr) or meta is None:
+                cmd_meta = getattr(attr, "__tooli_meta__", None)
+                if not callable(attr) or cmd_meta is None:
                     continue
 
                 if attr is module:
@@ -82,7 +82,7 @@ class FileSystemProvider(Provider):
                         name=name,
                         callback=attr,
                         help=getattr(attr, "__doc__", None) or "",
-                        hidden=getattr(attr, "__tooli_hidden__", False),
+                        hidden=getattr(cmd_meta, "hidden", False),
                         tags=[],
                     )
                 )

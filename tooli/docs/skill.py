@@ -43,7 +43,9 @@ def generate_skill_md(app: Tooli) -> str:
         lines.append("")
 
         callback = tool_def.callback
-        annotations = getattr(callback, "__tooli_annotations__", None)
+        from tooli.command_meta import get_command_meta
+        meta = get_command_meta(callback)
+        annotations = meta.annotations
         if annotations:
             from tooli.annotations import ToolAnnotation
             hints: list[str] = []
@@ -62,21 +64,19 @@ def generate_skill_md(app: Tooli) -> str:
 
             lines.append("#### Governance")
             lines.append(f"**Annotations**: `{', '.join(hints) if hints else '[]'}`")
-            cost_hint = getattr(callback, "__tooli_cost_hint__", None)
-            if cost_hint is not None:
-                lines.append(f"**Cost Hint**: `{cost_hint}`")
+            if meta.cost_hint is not None:
+                lines.append(f"**Cost Hint**: `{meta.cost_hint}`")
             else:
                 lines.append("**Cost Hint**: `unspecified`")
 
-            human_in_the_loop = bool(getattr(callback, "__tooli_human_in_the_loop__", False))
-            lines.append(f"**Human In The Loop**: `{'true' if human_in_the_loop else 'false'}`")
+            lines.append(f"**Human In The Loop**: `{'true' if meta.human_in_the_loop else 'false'}`")
             lines.append("")
 
-        required_scopes = getattr(callback, "__tooli_auth__", [])
+        required_scopes = meta.auth
         if required_scopes:
             lines.append(f"**Required Scopes**: `{', '.join(required_scopes)}`")
 
-        examples = getattr(callback, "__tooli_examples__", [])
+        examples = meta.examples
         if examples:
             lines.append("")
             lines.append("**Examples**:")
