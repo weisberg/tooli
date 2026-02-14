@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from typing import Annotated, Callable
 
@@ -238,6 +239,24 @@ def test_yes_skip_prompt() -> None:
     assert result.exit_code == 2
 
     result = runner.invoke(app, ["confirm", "--yes", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "confirmed"
+
+
+def test_confirm_uses_tty_prompt_device(monkeypatch) -> None:
+    """When stdin is not TTY, confirmation reads from prompt device path."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def confirm(ctx: typer.Context) -> str:
+        return "confirmed" if ctx.obj.confirm("Proceed?") else "denied"
+
+    stream = io.StringIO("y\n")
+
+    monkeypatch.setattr("tooli.context._open_tty_prompt_stream", lambda: stream)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["confirm", "--text"])
     assert result.exit_code == 0
     assert result.output.strip() == "confirmed"
 

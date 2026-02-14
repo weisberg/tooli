@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import io
+import os
+from typing import Any
 
 import click
-from typing import Any
 
 from tooli.errors import InputError, Suggestion
 
@@ -26,15 +28,17 @@ class ToolContext:
         """Request a confirmation in interactive mode.
 
         If --yes was provided, confirmation is automatically accepted.
-        In non-TTY environments without --yes, raises an InputError instead of
-        waiting on stdin.
+        When stdin is not a TTY, read from the platform's tty/console device.
         """
 
         if self.yes:
             return True
 
-        stdin_is_tty = click.get_text_stream("stdin").isatty()
-        if not stdin_is_tty:
+        if click.get_text_stream("stdin").isatty():
+            return click.confirm(message, default=default)
+
+        prompt_stream = _open_tty_prompt_stream()
+        if prompt_stream is None:
             raise InputError(
                 message=(
                     f"{message}. Add --yes to run without interactive confirmation "
@@ -49,4 +53,60 @@ class ToolContext:
                 details={"prompt": message},
             )
 
-        return click.confirm(message, default=default)
+        with prompt_stream:
+            return _read_confirmation_response(message, prompt_stream, default=default)
+
+
+def _prompt_device_path() -> str:
+    """Return the platform-specific prompt device."""
+
+    if os.name == "nt":
+        return "CON"
+    return "/dev/tty"
+
+
+def _open_tty_prompt_stream() -> io.TextIOBase | None:
+    """Open the tty/console stream for confirmation prompts.
+
+    Returns ``None`` when the platform prompt device cannot be opened.
+    """
+
+    path = _prompt_device_path()
+    try:
+        return open(path, "r+", encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _read_confirmation_response(message: str, stream: io.TextIOBase, *, default: bool) -> bool:
+    """Read and parse a yes/no confirmation answer from the stream."""
+
+    prompt = f"{message} [Y/n]" if default else f"{message} [y/N]"
+    click.echo(f"{prompt}: ", nl=False, err=True)
+
+    response = stream.readline()
+    if response == "":
+        return default
+
+    value = response.strip().lower()
+    if value == "":
+        return default
+    if value in {"y", "yes"}:
+        return True
+    if value in {"n", "no"}:
+        return False
+
+    raise InputError(
+        message=f"Invalid confirmation response: {response.strip()}",
+        code="E1008",
+        suggestion=Suggestion(
+            action="provide a valid confirmation answer",
+            fix="Type y or n.",
+            example=f"{message} [y/N] y",
+        ),
+        details={
+            "prompt": message,
+            "response": response.strip(),
+            "valid_values": ["y", "yes", "n", "no"],
+        },
+    )
