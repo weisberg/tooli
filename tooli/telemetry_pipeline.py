@@ -225,7 +225,7 @@ class TelemetryPipeline:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         request = urllib.request.Request(
-            self.endpoint,
+            self.endpoint,  # type: ignore[arg-type]
             data=payload,
             method="POST",
             headers=headers,

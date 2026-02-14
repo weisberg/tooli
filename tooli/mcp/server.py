@@ -21,7 +21,7 @@ def serve_mcp(
         raise ValueError(f"Unsupported MCP transport: {transport}")
 
     try:
-        from fastmcp import FastMCP
+        from fastmcp import FastMCP  # type: ignore[import-not-found]
     except ImportError:
         import click
         click.echo("Error: fastmcp is not installed. Install it with 'pip install fastmcp'.", err=True)
@@ -56,4 +56,4 @@ def serve_mcp(
     else:
         # HTTP / SSE transport (Phase 2, Issue #18)
         # FastMCP 2.x supports http/sse
-        mcp.run(transport=transport, host=host, port=port)
+        mcp.run(transport=transport, host=host, port=port)  # type: ignore[arg-type]

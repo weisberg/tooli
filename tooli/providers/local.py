@@ -23,8 +23,8 @@ class LocalProvider(Provider):
         for cmd in self.app.registered_commands:
             meta = get_command_meta(cmd.callback)
             tools.append(ToolDef(
-                name=cmd.name or cmd.callback.__name__,
-                callback=cmd.callback,
+                name=cmd.name or cmd.callback.__name__,  # type: ignore[union-attr]
+                callback=cmd.callback,  # type: ignore[arg-type]
                 help=cmd.help or cmd.callback.__doc__ or "",
                 hidden=cmd.hidden,
                 tags=list(getattr(meta, "tags", [])),

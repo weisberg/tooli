@@ -105,7 +105,7 @@ class Tooli(typer.Typer):
         return sorted(tool.name for tool in self.get_tools() if not tool.hidden)
 
     def _register_builtins(self) -> None:
-        @self.command(name="generate-skill", hidden=True)
+        @self.command(name="generate-skill", hidden=True)  # type: ignore[untyped-decorator]
         def generate_skill(
             output: str = typer.Option("SKILL.md", help="Output file path"),
         ) -> None:
@@ -320,7 +320,7 @@ class Tooli(typer.Typer):
 
             return _wrap
 
-        def _wrap(func: Any) -> Any:
+        def _wrap(func: Any) -> Any:  # type: ignore[no-redef]
             _configure_callback(func)
             base_name = name or func.__name__.replace("_", "-")
             is_hidden = bool(kwargs.get("hidden", False))

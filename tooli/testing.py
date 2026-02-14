@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from typer.testing import CliRunner, Result
+from typer.testing import CliRunner, Result  # type: ignore[attr-defined]
 
 from tooli.app import Tooli  # noqa: TC001
 
@@ -30,7 +30,7 @@ class TooliTestClient:
             assert "meta" in payload
             assert "tool" in payload["meta"]
             assert "version" in payload["meta"]
-            return payload
+            return payload  # type: ignore[no-any-return]
         except (json.JSONDecodeError, KeyError, AssertionError) as e:
             raise AssertionError(f"Invalid JSON envelope: {e}\nOutput: {result.output}") from e
 

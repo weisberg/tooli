@@ -287,9 +287,9 @@ def _apply_pagination(
         page_size = limit
 
     if max_items is not None:
-        page_size = min(page_size, max_items)
+        page_size = min(page_size, max_items)  # type: ignore[type-var]
 
-    end = start + page_size
+    end = start + page_size  # type: ignore[operator]
     page = filtered_items[start:end]
     truncated = len(filtered_items) > end
     meta: dict[str, Any] = {
@@ -828,7 +828,7 @@ class TooliCommand(TyperCommand):
         if bool(ctx.meta.get("tooli_flag_schema", False)):
             from tooli.schema import generate_tool_schema
 
-            schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx), required_scopes=required_scopes)
+            schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx), required_scopes=required_scopes)  # type: ignore[arg-type]
             if self.callback:
                 schema.annotations = _extract_annotation_hints(self.callback)
                 if cb_meta.cost_hint:
@@ -1015,9 +1015,9 @@ class TooliCommand(TyperCommand):
             if ctx.meta.get("tooli_flag_null"):
                 list_arg = _resolve_null_input_arg(ctx)
                 if list_arg is not None:
-                    parsed = _parse_null_delimited_input()
+                    parsed = _parse_null_delimited_input()  # type: ignore[assignment]
                     if parsed:
-                        ctx.params[list_arg] = parsed
+                        ctx.params[list_arg] = parsed  # type: ignore[assignment]
 
             if not used_cached_result:
                 _authorize()

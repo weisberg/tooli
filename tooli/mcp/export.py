@@ -42,12 +42,12 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
         }
 
         if schema.deprecated:
-            mcp_tool["deprecated"] = True
+            mcp_tool["deprecated"] = True  # type: ignore[assignment]
             if schema.deprecated_message:
                 mcp_tool["deprecatedMessage"] = schema.deprecated_message
 
         if required_scopes := meta.auth:
-            mcp_tool["auth"] = list(required_scopes)
+            mcp_tool["auth"] = list(required_scopes)  # type: ignore[assignment]
 
         # Add behavioral annotations as MCP hints
         annotations = meta.annotations

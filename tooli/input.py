@@ -210,7 +210,7 @@ class StdinOrType(click.ParamType):
     def _read_url(self, url: str) -> str:
         try:
             with urllib.request.urlopen(url, timeout=10) as response:
-                return response.read().decode("utf-8")
+                return response.read().decode("utf-8")  # type: ignore[no-any-return]
         except Exception as e:
             raise InputError(
                 message=f"Failed to fetch URL '{url}': {e}",

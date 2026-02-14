@@ -59,7 +59,10 @@ class _ActiveCommandSpan:
 
         if exit_code != 0:
             try:
-                from opentelemetry.trace import Status, StatusCode
+                from opentelemetry.trace import (  # type: ignore[import-not-found]
+                    Status,
+                    StatusCode,
+                )
 
                 self._span.set_status(Status(StatusCode.ERROR, f"exit_code={exit_code}"))
             except Exception:

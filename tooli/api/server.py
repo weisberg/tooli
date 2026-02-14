@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 def build_app(app: Tooli) -> Any:
     """Build a Starlette application for the Tooli app."""
     try:
-        from starlette.applications import Starlette
-        from starlette.responses import JSONResponse
-        from starlette.routing import Route
+        from starlette.applications import Starlette  # type: ignore[import-not-found]
+        from starlette.responses import JSONResponse  # type: ignore[import-not-found]
+        from starlette.routing import Route  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ImportError("Starlette is required for HTTP serving. Install it with 'pip install starlette'.") from exc
 
@@ -86,7 +86,7 @@ def build_app(app: Tooli) -> Any:
 
             return handler
 
-        routes.append(Route(f"/{cmd_id}", make_handler(tool), methods=["POST"]))
+        routes.append(Route(f"/{cmd_id}", make_handler(tool), methods=["POST"]))  # type: ignore[arg-type]
 
     return Starlette(debug=True, routes=routes)
 
@@ -94,7 +94,7 @@ def build_app(app: Tooli) -> Any:
 def serve_api(app: Tooli, host: str = "localhost", port: int = 8000) -> None:
     """Run the Tooli app as an HTTP API server."""
     try:
-        import uvicorn
+        import uvicorn  # type: ignore[import-not-found]
     except ImportError:
         import sys
 
