@@ -191,6 +191,83 @@ def test_output_jsonl_list() -> None:
     assert second["ok"] is True and second["result"] == {"a": 2}
 
 
+def test_command_timeout() -> None:
+    """--timeout should terminate command execution."""
+    import time
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def slow() -> str:
+        time.sleep(2)
+        return "done"
+
+    @app.command()
+    def noop() -> None:
+        pass
+
+    runner = CliRunner()
+    # Use a short timeout
+    result = runner.invoke(app, ["slow", "--timeout", "0.1"])
+    assert result.exit_code == 50
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert "timed out" in payload["error"]["message"]
+
+
+def test_structured_error_output() -> None:
+    """ToolError should produce structured JSON in non-TTY mode."""
+    from tooli.errors import StateError, Suggestion
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def fail() -> None:
+        raise StateError(
+            message="Resource not found",
+            code="E3001",
+            suggestion=Suggestion(action="check", fix="Try another ID")
+        )
+
+    @app.command()
+    def noop() -> None:
+        pass
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["fail"])
+    assert result.exit_code == 10
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "E3001"
+    assert payload["error"]["suggestion"]["fix"] == "Try another ID"
+
+
+def test_internal_error_with_verbose() -> None:
+    """Unexpected errors should include traceback in verbose mode."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def crash() -> None:
+        raise ValueError("Boom")
+
+    @app.command()
+    def noop() -> None:
+        pass
+
+    runner = CliRunner()
+    # Without verbose, no traceback
+    result = runner.invoke(app, ["crash"])
+    assert result.exit_code == 70
+    payload = json.loads(result.output)
+    assert "Internal error: Boom" in payload["error"]["message"]
+    assert "traceback" not in payload["error"]["details"]
+
+    # With verbose, traceback included
+    result = runner.invoke(app, ["crash", "-v"])
+    assert result.exit_code == 70
+    payload = json.loads(result.output)
+    assert "traceback" in payload["error"]["details"]
+    assert "ValueError: Boom" in payload["error"]["details"]["traceback"]
+
+
 def test_imports() -> None:
     """Key symbols should be importable from tooli."""
     from tooli import Annotated, Argument, Option, Tooli
