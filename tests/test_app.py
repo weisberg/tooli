@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated
 
 from typer.testing import CliRunner
@@ -51,7 +52,7 @@ def test_command_decorator_works() -> None:
         print(f"Hello {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world"])
+    result = runner.invoke(app, ["world", "--text"])
     assert result.exit_code == 0
     assert "Hello world" in result.output
 
@@ -68,7 +69,7 @@ def test_command_with_options() -> None:
         print(f"{greeting} {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world", "--greeting", "Hi"])
+    result = runner.invoke(app, ["world", "--greeting", "Hi", "--text"])
     assert result.exit_code == 0
     assert "Hi world" in result.output
 
@@ -82,7 +83,7 @@ def test_single_command_app() -> None:
         print(f"Hello {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["world"])
+    result = runner.invoke(app, ["world", "--text"])
     assert result.exit_code == 0
     assert "Hello world" in result.output
 
@@ -100,11 +101,11 @@ def test_multi_command_app() -> None:
         print(f"Goodbye {name}")
 
     runner = CliRunner()
-    result = runner.invoke(app, ["hello", "world"])
+    result = runner.invoke(app, ["hello", "world", "--text"])
     assert result.exit_code == 0
     assert "Hello world" in result.output
 
-    result = runner.invoke(app, ["goodbye", "world"])
+    result = runner.invoke(app, ["goodbye", "world", "--text"])
     assert result.exit_code == 0
     assert "Goodbye world" in result.output
 
@@ -123,6 +124,71 @@ def test_help_output() -> None:
     assert result.exit_code == 0
     assert "Say hello to someone" in result.output
     assert "Name to greet" in result.output
+
+
+def test_return_value_json_envelope() -> None:
+    """Non-TTY invocations default to JSON envelope output."""
+    app = Tooli(name="file-tools", version="1.0.0")
+
+    @app.command()
+    def info() -> dict:
+        return {"ok": 1}
+
+    # Force a multi-command app so the command name is part of the command path.
+    @app.command()
+    def noop() -> None:
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["info"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["result"] == {"ok": 1}
+    assert payload["meta"]["tool"] == "file-tools.info"
+    assert payload["meta"]["version"] == "1.0.0"
+    assert isinstance(payload["meta"]["duration_ms"], int)
+
+
+def test_output_alias_last_wins() -> None:
+    """If multiple output flags are provided, the last one wins."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def val() -> dict:
+        return {"x": 1}
+
+    @app.command()
+    def noop() -> None:
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["val", "--json", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "{'x': 1}"
+
+
+def test_output_jsonl_list() -> None:
+    """JSONL emits one object per line for list return values."""
+    app = Tooli(name="test-app", version="0.0.0")
+
+    @app.command()
+    def items() -> list[dict]:
+        return [{"a": 1}, {"a": 2}]
+
+    @app.command()
+    def noop() -> None:
+        return None
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["items", "--jsonl"])
+    assert result.exit_code == 0
+    lines = [ln for ln in result.output.splitlines() if ln.strip()]
+    assert len(lines) == 2
+    first = json.loads(lines[0])
+    second = json.loads(lines[1])
+    assert first["ok"] is True and first["result"] == {"a": 1}
+    assert second["ok"] is True and second["result"] == {"a": 2}
 
 
 def test_imports() -> None:
