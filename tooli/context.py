@@ -24,6 +24,7 @@ class ToolContext:
     dry_run: bool = False
     force: bool = False
     yes: bool = False
+    idempotency_key: str | None = None
     timeout: float | None = None
     response_format: str = "concise"
     auth: AuthContext | None = None

@@ -20,6 +20,7 @@ from tooli.exit_codes import ExitCode
 from tooli.auth import AuthContext
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
 from tooli.eval.recorder import InvocationRecorder
+from tooli.idempotency import get_record, set_record
 from tooli.security.policy import SecurityPolicy
 from tooli.security.sanitizer import sanitize_output
 from tooli.telemetry import duration_ms as otel_duration_ms
@@ -155,6 +156,11 @@ def _collect_invocation_args(ctx: click.Context) -> dict[str, Any]:
 def _is_destructive_command(callback: Callable[..., Any] | None) -> bool:
     annotations = getattr(callback, "__tooli_annotations__", None)
     return bool(getattr(annotations, "destructive", False))
+
+
+def _is_idempotent_command(callback: Callable[..., Any] | None) -> bool:
+    annotations = getattr(callback, "__tooli_annotations__", None)
+    return bool(getattr(annotations, "idempotent", False))
 
 
 def _needs_human_confirmation(
@@ -340,6 +346,13 @@ class TooliCommand(TyperCommand):
                     callback=_capture_tooli_flags,
                 ),
                 click.Option(
+                    ["--idempotency-key"],
+                    type=str,
+                    help="Idempotency key for safe retries.",
+                    expose_value=False,
+                    callback=_capture_tooli_flags,
+                ),
+                click.Option(
                     ["--response-format"],
                     type=click.Choice([m.value for m in ResponseFormat], case_sensitive=False),
                     help="Response format for command return values.",
@@ -489,6 +502,7 @@ class TooliCommand(TyperCommand):
             yes=bool(ctx.meta.get("tooli_flag_yes", False)),
             timeout=ctx.meta.get("tooli_flag_timeout"),
             auth=auth_context,
+            idempotency_key=ctx.meta.get("tooli_flag_idempotency_key"),
             response_format=resolve_response_format(ctx).value,
         )
 
@@ -530,10 +544,13 @@ class TooliCommand(TyperCommand):
             ctx.meta["tooli_output_override"] = parsed
 
         result: Any | None = None
+        used_cached_result = False
 
         mode = resolve_output_mode(ctx)
         no_color = resolve_no_color(ctx)
         command_name = _get_tool_id(ctx)
+        idempotency_key = ctx.meta.get("tooli_flag_idempotency_key")
+        is_idempotent = _is_idempotent_command(self.callback)
         start = time.perf_counter()
         timer_active = False
         ctx.meta.setdefault("tooli_secret_values", [])
@@ -543,6 +560,8 @@ class TooliCommand(TyperCommand):
             for secret_name in getattr(self, "_tooli_secret_params", []):
                 if secret_name in args:
                     args[secret_name] = "********"
+            if idempotency_key:
+                args["idempotency_key"] = idempotency_key
             return args
 
         command_span = start_command_span(command=command_name, arguments=_observation_args())
@@ -609,6 +628,26 @@ class TooliCommand(TyperCommand):
         def _authorize() -> None:
             _enforce_authorization(auth_context=auth_context, required_scopes=required_scopes)
 
+        def _check_idempotency() -> None:
+            nonlocal result, used_cached_result
+            if not idempotency_key:
+                return
+
+            record = get_record(command=command_name, idempotency_key=str(idempotency_key))
+            if record is None:
+                return
+
+            if is_idempotent and record.has_cached_result:
+                used_cached_result = True
+                result = record.result
+                return
+
+            raise InputError(
+                message="Duplicate idempotency key requires command to be marked idempotent.",
+                code="E1004",
+                details={"command": command_name, "idempotency_key": idempotency_key},
+            )
+
         # Handle timeout if specified.
         def _timeout_handler(signum: int, frame: Any) -> None:
             del signum, frame
@@ -652,6 +691,8 @@ class TooliCommand(TyperCommand):
                 return
 
             args = redact_secret_values(_collect_invocation_args(ctx), ctx.meta.get("tooli_secret_values", []))
+            if idempotency_key:
+                args["idempotency_key"] = idempotency_key
             invocation_recorder.record(
                 command=command_name,
                 args=args,
@@ -662,52 +703,56 @@ class TooliCommand(TyperCommand):
             )
 
         try:
-            _authorize()
-            _enforce_security_policy()
+            _check_idempotency()
+            if not used_cached_result:
+                _authorize()
+                _enforce_security_policy()
 
-            # Resolve secret arguments before invoking the callback.
-            for secret_name in getattr(self, "_tooli_secret_params", []):
-                explicit_value = ctx.params.get(secret_name)
-                file_path = ctx.meta.pop(f"tooli_secret_file_{secret_name}", None)
-                if file_path is None and len(getattr(self, "_tooli_secret_params", [])) == 1:
-                    file_path = ctx.meta.pop("tooli_secret_file", None)
+                # Resolve secret arguments before invoking the callback.
+                for secret_name in getattr(self, "_tooli_secret_params", []):
+                    explicit_value = ctx.params.get(secret_name)
+                    file_path = ctx.meta.pop(f"tooli_secret_file_{secret_name}", None)
+                    if file_path is None and len(getattr(self, "_tooli_secret_params", [])) == 1:
+                        file_path = ctx.meta.pop("tooli_secret_file", None)
 
-                use_stdin = bool(ctx.meta.pop(f"tooli_secret_stdin_{secret_name}", False))
-                if not use_stdin and len(getattr(self, "_tooli_secret_params", [])) == 1:
-                    use_stdin = bool(ctx.meta.pop("tooli_secret_stdin_default", False))
+                    use_stdin = bool(ctx.meta.pop(f"tooli_secret_stdin_{secret_name}", False))
+                    if not use_stdin and len(getattr(self, "_tooli_secret_params", [])) == 1:
+                        use_stdin = bool(ctx.meta.pop("tooli_secret_stdin_default", False))
 
-                resolved = resolve_secret_value(
-                    explicit_value=explicit_value,
-                    param_name=secret_name,
-                    file_path=file_path,
-                    use_stdin=use_stdin,
-                    use_env=True,
+                    resolved = resolve_secret_value(
+                        explicit_value=explicit_value,
+                        param_name=secret_name,
+                        file_path=file_path,
+                        use_stdin=use_stdin,
+                        use_env=True,
+                    )
+
+                    if resolved is not None:
+                        ctx.params[secret_name] = resolved
+                        if isinstance(ctx.meta.get("tooli_secret_values"), list):
+                            ctx.meta["tooli_secret_values"].append(resolved)
+
+                command_span.set_arguments(
+                    redact_secret_values(_collect_invocation_args(ctx), ctx.meta.get("tooli_secret_values", []))
                 )
 
-                if resolved is not None:
-                    ctx.params[secret_name] = resolved
-                    if isinstance(ctx.meta.get("tooli_secret_values"), list):
-                        ctx.meta["tooli_secret_values"].append(resolved)
-
-            command_span.set_arguments(redact_secret_values(_collect_invocation_args(ctx), ctx.meta.get("tooli_secret_values", [])))
-
-            try:
-                result = super().invoke(ctx)
-            except ToolError:
-                raise
-            except click.UsageError as e:
-                # Map Click usage errors to InputError (exit code 2).
-                raise InputError(message=str(e), code="E1001") from e
-            except click.ClickException as e:
-                raise InputError(message=e.format_message(), code="E1002") from e
-            except Exception as e:
-                details = {}
-                if ctx.obj.verbose > 0:
-                    details["traceback"] = traceback.format_exc()
-                raise InternalError(
-                    message=f"Internal error: {e}",
-                    details=details,
-                ) from e
+                try:
+                    result = super().invoke(ctx)
+                except ToolError:
+                    raise
+                except click.UsageError as e:
+                    # Map Click usage errors to InputError (exit code 2).
+                    raise InputError(message=str(e), code="E1001") from e
+                except click.ClickException as e:
+                    raise InputError(message=e.format_message(), code="E1002") from e
+                except Exception as e:
+                    details = {}
+                    if ctx.obj.verbose > 0:
+                        details["traceback"] = traceback.format_exc()
+                    raise InternalError(
+                        message=f"Internal error: {e}",
+                        details=details,
+                    ) from e
         except ToolError as e:
             _emit_invocation(
                 status="error",
@@ -736,6 +781,14 @@ class TooliCommand(TyperCommand):
         finally:
             if timer_active:
                 signal.setitimer(signal.ITIMER_REAL, 0)
+
+        if idempotency_key and not used_cached_result:
+            set_record(
+                command=command_name,
+                idempotency_key=str(idempotency_key),
+                has_cached_result=is_idempotent,
+                result=result,
+            )
 
         duration_ms = int((time.perf_counter() - start) * 1000)
 
