@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import typer
 
 from tooli.command import TooliCommand
+from tooli.telemetry_pipeline import build_telemetry_pipeline
 
 
 class Tooli(typer.Typer):
@@ -25,6 +27,10 @@ class Tooli(typer.Typer):
         mcp_transport: str = "stdio",
         skill_auto_generate: bool = False,
         permissions: dict[str, str] | None = None,
+        telemetry: bool | None = None,
+        telemetry_endpoint: str | None = None,
+        telemetry_storage_dir: Path | None = None,
+        telemetry_retention_days: int = 30,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -35,6 +41,17 @@ class Tooli(typer.Typer):
         self.mcp_transport = mcp_transport
         self.skill_auto_generate = skill_auto_generate
         self.permissions = permissions or {}
+        self.telemetry = telemetry
+        self.telemetry_endpoint = telemetry_endpoint
+        self.telemetry_storage_dir = telemetry_storage_dir
+        self.telemetry_retention_days = telemetry_retention_days
+        self.telemetry_pipeline = build_telemetry_pipeline(
+            app_name=self.info.name or "tooli",
+            telemetry=telemetry,
+            endpoint=telemetry_endpoint,
+            storage_dir=telemetry_storage_dir,
+            retention_days=telemetry_retention_days,
+        )
 
         # Register built-in commands
         self._register_builtins()
@@ -112,6 +129,7 @@ class Tooli(typer.Typer):
             setattr(func, "__tooli_cost_hint__", cost_hint)
             setattr(func, "__tooli_human_in_the_loop__", human_in_the_loop)
             setattr(func, "__tooli_auth__", auth or [])
+            setattr(func, "__tooli_telemetry_pipeline__", self.telemetry_pipeline)
 
             return decorator(func)
 

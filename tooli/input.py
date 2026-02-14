@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
+import warnings
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, Iterable, TypeVar
 
 import click
 
@@ -19,6 +21,127 @@ class StdinOr(Generic[T]):
 
     pass
 
+
+class SecretInput(Generic[T]):
+    """Marker type for parameters that carry secret material."""
+
+    __tooli_secret_input__ = True
+
+    def __class_getitem__(cls, item: Any) -> "type[SecretInput[T]]":  # pragma: no cover - generic marker behavior
+        return cls
+
+
+def is_secret_input(annotation: Any) -> bool:
+    """Return True when an annotation indicates a secret input."""
+    from typing import Any as _AnyType, Annotated, get_args, get_origin
+
+    if annotation is _AnyType:
+        return False
+
+    if get_origin(annotation) is Annotated:
+        base, *_meta = get_args(annotation)
+        return is_secret_input(base)
+
+    return getattr(annotation, "__tooli_secret_input__", False)
+
+
+def secret_env_var(param_name: str) -> str:
+    """Return the default environment variable for a secret parameter."""
+    return f"TOOLI_SECRET_{param_name.upper()}"
+
+
+def read_secret_value_from_file(path: str) -> str:
+    """Read secret text from a file path."""
+    file_path = Path(path)
+    if not file_path.exists():
+        raise InputError(
+            message=f"Secret file not found: {path}",
+            code="E1100",
+            details={"path": path},
+        )
+    if not file_path.is_file():
+        raise InputError(message=f"Secret source is not a file: {path}", code="E1101", details={"path": path})
+
+    try:
+        return file_path.read_text(encoding="utf-8").strip()
+    except Exception as e:
+        raise InputError(
+            message=f"Failed to read secret file '{path}': {e}",
+            code="E1102",
+            details={"path": path},
+        ) from e
+
+
+def read_secret_value_from_stdin() -> str:
+    """Read raw secret text from stdin."""
+    try:
+        value = sys.stdin.read()
+    except Exception as e:
+        raise InputError(message=f"Failed to read secret from stdin: {e}", code="E1103", details={}) from e
+
+    value = value.strip()
+    if not value:
+        raise InputError(message="Secret stdin input was empty", code="E1104")
+    return value
+
+
+def resolve_secret_value(
+    *,
+    explicit_value: str | None,
+    param_name: str,
+    file_path: str | None = None,
+    use_stdin: bool = False,
+    use_env: bool = True,
+) -> str | None:
+    """Resolve the concrete secret using supported input channels."""
+    if explicit_value is not None:
+        return explicit_value
+
+    if file_path is not None:
+        return read_secret_value_from_file(file_path)
+
+    if use_stdin:
+        return read_secret_value_from_stdin()
+
+    if use_env:
+        env_key = secret_env_var(param_name)
+        env_val = os.getenv(env_key)
+        if env_val is not None:
+            warnings.warn(
+                f"Using {env_key} for secret input is deprecated due leakage risk. Use --{param_name}-secret-file or --{param_name}-secret-stdin instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return env_val.strip()
+
+    return explicit_value
+
+
+def redact_secret_values(value: Any, secret_values: Iterable[str]) -> Any:
+    """Recursively replace known secret values with a redaction marker."""
+    redact = "***REDACTED***"
+    secret_set = {s for s in secret_values if isinstance(s, str)}
+    if not secret_set:
+        return value
+    if "" in secret_set:
+        secret_set.discard("")
+
+    if isinstance(value, str):
+        redacted = value
+        for secret in sorted(secret_set, key=len, reverse=True):
+            redacted = redacted.replace(secret, redact)
+        return redacted
+
+    if isinstance(value, dict):
+        return {k: redact_secret_values(v, secret_set) for k, v in value.items()}
+
+    if isinstance(value, list):
+        return [redact_secret_values(item, secret_set) for item in value]
+
+    if isinstance(value, tuple):
+        return tuple(redact_secret_values(item, secret_set) for item in value)
+
+    return value
 
 class StdinOrType(click.ParamType):
     """Click ParamType for StdinOr resolution."""

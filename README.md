@@ -164,6 +164,18 @@ Tooli auto-detects the right output format, or you can be explicit:
 | `--plain` | Unformatted text for grep/awk pipelines |
 | `--quiet` | Suppress non-essential output |
 
+## Optional Telemetry
+
+Tooli supports anonymous, opt-in usage telemetry for tool authors.
+
+- Disabled by default.
+- Enable with `TOOLI_TELEMETRY=true` or `Tooli(telemetry=True)`.
+- Records only command identifiers, duration (ms), success/failure outcome, and exit/error codes.
+- No command arguments or command output payloads are recorded.
+- Local-first by default to `~/.config/tooli/telemetry/events.jsonl`.
+- Remote forwarding is opt-in via `TOOLI_TELEMETRY_ENDPOINT` or `Tooli(telemetry_endpoint=...)`.
+- Retention policy is local-only by default: entries older than 30 days are pruned.
+
 ## Auto-Generated Documentation
 
 ```bash
