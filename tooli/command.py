@@ -22,6 +22,8 @@ from tooli.input import is_secret_input, redact_secret_values, resolve_secret_va
 from tooli.eval.recorder import InvocationRecorder
 from tooli.security.policy import SecurityPolicy
 from tooli.security.sanitizer import sanitize_output
+from tooli.telemetry import duration_ms as otel_duration_ms
+from tooli.telemetry import start_command_span
 from tooli.telemetry_pipeline import TelemetryPipeline
 from tooli.output import (
     OutputMode,
@@ -536,6 +538,15 @@ class TooliCommand(TyperCommand):
         timer_active = False
         ctx.meta.setdefault("tooli_secret_values", [])
 
+        def _observation_args() -> dict[str, Any]:
+            args = _collect_invocation_args(ctx)
+            for secret_name in getattr(self, "_tooli_secret_params", []):
+                if secret_name in args:
+                    args[secret_name] = "********"
+            return args
+
+        command_span = start_command_span(command=command_name, arguments=_observation_args())
+
         def _enforce_security_policy() -> None:
             if security_policy == SecurityPolicy.OFF:
                 return
@@ -613,15 +624,27 @@ class TooliCommand(TyperCommand):
             timer_active = True
 
         def _emit_telemetry(*, success: bool, error: ToolError | None = None, exit_code: int | None = None) -> None:
+            elapsed_ms = otel_duration_ms(start)
             if telemetry_pipeline is None:
+                command_span.set_outcome(
+                    exit_code=0 if exit_code is None else exit_code,
+                    error_category=None if error is None else error.category.value,
+                    duration_ms=elapsed_ms,
+                )
                 return
+
             telemetry_pipeline.record(
                 command=command_name,
                 success=success,
-                duration_ms=int((time.perf_counter() - start) * 1000),
+                duration_ms=elapsed_ms,
                 exit_code=exit_code,
                 error_code=None if error is None else error.code,
                 error_category=None if error is None else error.category.value,
+            )
+            command_span.set_outcome(
+                exit_code=0 if exit_code is None else exit_code,
+                error_category=None if error is None else error.category.value,
+                duration_ms=elapsed_ms,
             )
 
         def _emit_invocation(*, status: str, error_code: str | None = None, exit_code: int | None = None) -> None:
@@ -665,6 +688,8 @@ class TooliCommand(TyperCommand):
                     ctx.params[secret_name] = resolved
                     if isinstance(ctx.meta.get("tooli_secret_values"), list):
                         ctx.meta["tooli_secret_values"].append(resolved)
+
+            command_span.set_arguments(redact_secret_values(_collect_invocation_args(ctx), ctx.meta.get("tooli_secret_values", [])))
 
             try:
                 result = super().invoke(ctx)
