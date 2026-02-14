@@ -44,6 +44,9 @@ def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
             if schema.deprecated_message:
                 mcp_tool["deprecatedMessage"] = schema.deprecated_message
 
+        if required_scopes := getattr(cmd.callback, "__tooli_auth__", None):
+            mcp_tool["auth"] = list(required_scopes)
+
         # Add behavioral annotations as MCP hints
         annotations = getattr(cmd.callback, "__tooli_annotations__", None)
         if isinstance(annotations, ToolAnnotation):

@@ -17,6 +17,7 @@ class ToolSchema(BaseModel):
     version: str | None = None
     output_schema: dict[str, Any] | None = None
     annotations: list[str] = Field(default_factory=list)
+    auth: list[str] = Field(default_factory=list)
     examples: list[dict[str, Any]] = Field(default_factory=list)
     deprecated: bool = False
     deprecated_message: str | None = None
@@ -44,7 +45,9 @@ def _dereference_refs(schema: dict[str, Any], root_schema: dict[str, Any] | None
     return schema
 
 
-def generate_tool_schema(func: Callable[..., Any], name: str | None = None) -> ToolSchema:
+def generate_tool_schema(
+    func: Callable[..., Any], name: str | None = None, required_scopes: list[str] | None = None
+) -> ToolSchema:
     """Generate MCP-compatible tool schema from a function signature."""
     sig = inspect.signature(func)
     
@@ -84,4 +87,5 @@ def generate_tool_schema(func: Callable[..., Any], name: str | None = None) -> T
         version=getattr(func, "__tooli_version__", None),
         deprecated=bool(getattr(func, "__tooli_deprecated__", False)),
         deprecated_message=getattr(func, "__tooli_deprecated_message__", None),
+        auth=required_scopes or list(getattr(func, "__tooli_auth__", [])),
     )

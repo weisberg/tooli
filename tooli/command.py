@@ -15,8 +15,9 @@ from typer.core import TyperCommand
 
 from tooli.context import ToolContext
 from tooli.envelope import Envelope, EnvelopeMeta
-from tooli.errors import InputError, InternalError, RuntimeError, ToolError
+from tooli.errors import AuthError, InputError, InternalError, RuntimeError, ToolError
 from tooli.exit_codes import ExitCode
+from tooli.auth import AuthContext
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
 from tooli.eval.recorder import InvocationRecorder
 from tooli.security.policy import SecurityPolicy
@@ -169,6 +170,28 @@ def _needs_human_confirmation(
     if policy == SecurityPolicy.STRICT and has_human_in_the_loop:
         return True
     return not yes_override
+
+
+def _enforce_authorization(
+    *,
+    auth_context: AuthContext | None,
+    required_scopes: list[str],
+) -> None:
+    if not required_scopes:
+        return
+
+    active_scopes = set(auth_context.scopes if auth_context is not None else [])
+    missing_scopes = [scope for scope in required_scopes if scope not in active_scopes]
+    if missing_scopes:
+        raise AuthError(
+            message="Missing required scopes for command.",
+            code="E2001",
+            details={
+                "required_scopes": required_scopes,
+                "missing_scopes": missing_scopes,
+                "active_scopes": sorted(active_scopes),
+            },
+        )
 
 
 def _audit_security_event(ctx: click.Context, *, event: str, details: dict[str, Any]) -> None:
@@ -441,12 +464,19 @@ class TooliCommand(TyperCommand):
         if params:
             lines.append("params=" + "|".join(TooliCommand._format_param_for_help_agent(p) for p in params))
 
+        callback = getattr(ctx.command, "callback", None)
+        required_scopes = getattr(callback, "__tooli_auth__", None)
+        if required_scopes:
+            lines.append("auth=" + ",".join(required_scopes))
+
         return "\n".join(lines)
 
     def invoke(self, ctx: click.Context) -> Any:
         _, app_version, app_default_output, telemetry_pipeline, invocation_recorder, security_policy = _get_app_meta_from_callback(
             self.callback
         )
+        required_scopes = list(getattr(self.callback, "__tooli_auth__", []))
+        auth_context = getattr(self.callback, "__tooli_auth_context__", None)
 
         # Initialize ToolContext and store in ctx.obj for callback access.
         ctx.obj = ToolContext(
@@ -456,6 +486,7 @@ class TooliCommand(TyperCommand):
             force=bool(ctx.meta.get("tooli_flag_force", False)),
             yes=bool(ctx.meta.get("tooli_flag_yes", False)),
             timeout=ctx.meta.get("tooli_flag_timeout"),
+            auth=auth_context,
             response_format=resolve_response_format(ctx).value,
         )
 
@@ -466,7 +497,7 @@ class TooliCommand(TyperCommand):
         if bool(ctx.meta.get("tooli_flag_schema", False)):
             from tooli.schema import generate_tool_schema
 
-            schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx))
+            schema = generate_tool_schema(self.callback, name=_get_tool_id(ctx), required_scopes=required_scopes)
             if self.callback:
                 annotations = getattr(self.callback, "__tooli_annotations__", None)
                 from tooli.annotations import ToolAnnotation
@@ -564,6 +595,9 @@ class TooliCommand(TyperCommand):
                 _audit_security_event(ctx, event="destructive_denied", details={"policy": security_policy.value})
                 raise InputError(message="Destructive command not confirmed.", code="E2003")
 
+        def _authorize() -> None:
+            _enforce_authorization(auth_context=auth_context, required_scopes=required_scopes)
+
         # Handle timeout if specified.
         def _timeout_handler(signum: int, frame: Any) -> None:
             del signum, frame
@@ -605,6 +639,7 @@ class TooliCommand(TyperCommand):
             )
 
         try:
+            _authorize()
             _enforce_security_policy()
 
             # Resolve secret arguments before invoking the callback.

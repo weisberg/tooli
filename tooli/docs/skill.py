@@ -56,6 +56,10 @@ def generate_skill_md(app: Tooli) -> str:
                 if hints:
                     lines.append(f"**Behavior**: `[{', '.join(hints)}]`")
 
+        required_scopes = getattr(cmd.callback, "__tooli_auth__", [])
+        if required_scopes:
+            lines.append(f"**Required Scopes**: `{', '.join(required_scopes)}`")
+
         examples = getattr(cmd.callback, "__tooli_examples__", [])
         if examples:
             lines.append("")
