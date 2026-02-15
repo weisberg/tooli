@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tooli"
-version = "1.0.0"
+version = "1.0.1"
 description = "The agent-native CLI framework for Python"
-readme = "README.md"
+readme = "pypi/pypi_project.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
