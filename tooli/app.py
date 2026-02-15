@@ -180,12 +180,12 @@ class Tooli(typer.Typer):
             click.echo(f"Generated {filename}")
 
         # API group
-        api_app = typer.Typer(name="api", help="HTTP API utilities", hidden=True)
+        api_app = typer.Typer(name="api", help="HTTP API utilities (experimental)", hidden=True)
         self.add_typer(api_app)
 
         @api_app.command(name="export-openapi")
         def api_export_openapi() -> None:
-            """Export OpenAPI 3.1.0 schema as JSON."""
+            """Export OpenAPI 3.1.0 schema as JSON (experimental)."""
             import json
 
             import click
@@ -200,7 +200,7 @@ class Tooli(typer.Typer):
             host: str = typer.Option("localhost", help="HTTP host"),
             port: int = typer.Option(8000, help="HTTP port"),
         ) -> None:
-            """Run the application as an HTTP API server."""
+            """Run the application as an HTTP API server (experimental)."""
             from tooli.api.server import serve_api
 
             serve_api(self, host=host, port=port)

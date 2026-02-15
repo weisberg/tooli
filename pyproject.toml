@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tooli"
-version = "0.1.0"
+version = "1.0.0"
 description = "The agent-native CLI framework for Python"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ authors = [
     {name = "tooli developers"}
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -34,6 +34,13 @@ dev = [
     "pytest-cov>=4.0",
     "ruff>=0.4",
     "mypy>=1.0",
+]
+mcp = [
+    "fastmcp>=2.0",
+]
+api = [
+    "starlette>=0.27",
+    "uvicorn>=0.20",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,4 +1,8 @@
-"""OpenAPI schema generation for Tooli apps."""
+"""OpenAPI schema generation for Tooli apps (experimental).
+
+Part of the experimental HTTP API surface.  See ``tooli.api.server``
+for details.
+"""
 
 from __future__ import annotations
 
