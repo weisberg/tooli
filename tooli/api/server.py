@@ -1,4 +1,10 @@
-"""HTTP API server for Tooli apps."""
+"""HTTP API server for Tooli apps (experimental).
+
+This module is marked **experimental** and its interface may change in
+future releases.  Install optional dependencies with::
+
+    pip install tooli[api]
+"""
 
 from __future__ import annotations
 
