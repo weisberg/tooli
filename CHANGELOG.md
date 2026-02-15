@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-15
+
+### Changed
+- Updated all project documentation (README, examples, PLAN, PRD, CLAUDE.md)
+- Added CI/PyPI/license badges to README
+- Added optional extras install instructions (`tooli[mcp]`, `tooli[api]`)
+- Rewrote examples README with all 18 apps organized by category
+- Added CONTRIBUTING.md, CODE_OF_CONDUCT.md, CHANGELOG.md
+- Added GitHub Actions publish workflow with OIDC trusted publishing
+- Added issue templates for bug reports and feature requests
+- Added `tomli` dependency for Python 3.10 compatibility
+
 ## [1.0.0] - 2026-02-15
 
 ### Added
@@ -28,4 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[1.0.1]: https://github.com/weisberg/tooli/releases/tag/v1.0.1
 [1.0.0]: https://github.com/weisberg/tooli/releases/tag/v1.0.0
