@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from tooli.exit_codes import ExitCode
 
 
-def _default_exit_code(category: "ErrorCategory") -> ExitCode:
+def _default_exit_code(category: ErrorCategory) -> ExitCode:
     mapping = {
         ErrorCategory.INPUT: ExitCode.INVALID_INPUT,
         ErrorCategory.AUTH: ExitCode.AUTH_DENIED,

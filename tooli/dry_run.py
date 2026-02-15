@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable  # noqa: TC003
 from contextvars import ContextVar
 from functools import wraps
 from typing import Any
@@ -11,13 +11,13 @@ import click
 
 from tooli.context import ToolContext
 
-_DRY_RUN_RECORDER: ContextVar["DryRunRecorder | None"] = ContextVar(
+_DRY_RUN_RECORDER: ContextVar[DryRunRecorder | None] = ContextVar(
     "_tooli_dry_run_recorder",
     default=None,
 )
 
 
-def current_dry_run_recorder() -> "DryRunRecorder | None":
+def current_dry_run_recorder() -> DryRunRecorder | None:
     """Return the active dry-run recorder, if any."""
 
     return _DRY_RUN_RECORDER.get()

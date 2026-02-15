@@ -10,10 +10,11 @@ import random
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Generator  # noqa: TC003
 from dataclasses import dataclass
-from io import TextIOWrapper
+from io import TextIOWrapper  # noqa: TC003
 from pathlib import Path
-from typing import Any, Callable, Generator
+from typing import Any
 
 try:
     import fcntl as _fcntl
@@ -179,7 +180,7 @@ class TelemetryPipeline:
         try:
             path = self.events_file
             path.parent.mkdir(parents=True, exist_ok=True)
-            with path.open("a", encoding="utf-8") as file:
+            with path.open("a", encoding="utf-8") as file: # noqa: SIM117
                 with _file_lock(file):
                     file.write(json.dumps(record.to_dict(), sort_keys=True))
                     file.write("\n")
@@ -195,8 +196,7 @@ class TelemetryPipeline:
             return
         cutoff = self.clock() - (self.retention_days * 24 * 60 * 60)
         try:
-            with path.open("r+", encoding="utf-8") as file:
-                with _file_lock(file):
+            with path.open("r+", encoding="utf-8") as file, _file_lock(file):
                     lines = file.read().splitlines()
                     kept_lines: list[str] = []
                     for line in lines:
@@ -225,7 +225,7 @@ class TelemetryPipeline:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         request = urllib.request.Request(
-            self.endpoint,
+            self.endpoint,  # type: ignore[arg-type]
             data=payload,
             method="POST",
             headers=headers,

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import os
-import warnings
 import sys
 import urllib.request
+import warnings
+from collections.abc import Iterable  # noqa: TC003
 from pathlib import Path
-from collections.abc import Iterable
 from typing import Any, Generic, TypeVar
 
 import click
@@ -28,20 +28,28 @@ class SecretInput(Generic[T]):
 
     __tooli_secret_input__ = True
 
-    def __class_getitem__(cls, item: Any) -> "type[SecretInput[T]]":  # pragma: no cover - generic marker behavior
+    def __class_getitem__(cls, item: Any) -> type[SecretInput[T]]:  # pragma: no cover - generic marker behavior
         return cls
 
 
 def is_secret_input(annotation: Any) -> bool:
     """Return True when an annotation indicates a secret input."""
-    from typing import Any as _AnyType, Annotated, get_args, get_origin
+    import types
+    from typing import Annotated, Union, get_args, get_origin
+    from typing import Any as _AnyType
 
     if annotation is _AnyType:
         return False
 
-    if get_origin(annotation) is Annotated:
+    origin = get_origin(annotation)
+
+    if origin is Annotated:
         base, *_meta = get_args(annotation)
         return is_secret_input(base)
+
+    # Handle Optional[X] / Union[X, None] on Python 3.10+
+    if origin is Union or origin is getattr(types, "UnionType", None):
+        return any(is_secret_input(arg) for arg in get_args(annotation) if arg is not type(None))
 
     return getattr(annotation, "__tooli_secret_input__", False)
 
@@ -175,7 +183,7 @@ class StdinOrType(click.ParamType):
         try:
             path = Path(value)
             if path.exists():
-                if self.inner_type == Path:
+                if self.inner_type is Path:
                     return path
                 return path.read_text()
             else:
@@ -183,7 +191,7 @@ class StdinOrType(click.ParamType):
                 # But for StdinOr, we usually expect a source.
                 # If inner_type is str and it doesn't look like a path, return as is?
                 # No, better to be strict: if it's provided but not a file/URL/-, and we expect a source, fail.
-                if self.inner_type == str:
+                if self.inner_type is str:
                     return value
                 raise InputError(
                     message=f"Input path does not exist: {value}",
@@ -209,7 +217,7 @@ class StdinOrType(click.ParamType):
     def _read_url(self, url: str) -> str:
         try:
             with urllib.request.urlopen(url, timeout=10) as response:
-                return response.read().decode("utf-8")
+                return response.read().decode("utf-8")  # type: ignore[no-any-return]
         except Exception as e:
             raise InputError(
                 message=f"Failed to fetch URL '{url}': {e}",

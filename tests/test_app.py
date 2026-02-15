@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import io
 import json
-from typing import Annotated, Callable
+import sys
+from collections.abc import Callable  # noqa: TC003
+from typing import Annotated
 
-import typer
+import pytest
+import typer  # noqa: TC002
 from typer.testing import CliRunner
 
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Destructive, Idempotent, ReadOnly
+
+_XFAIL_PY310 = pytest.mark.xfail(
+    sys.version_info < (3, 11),
+    reason="Typer list[str] | None handling requires Python 3.11+",
+    strict=False,
+)
 
 
 def test_tooli_creates_basic_app() -> None:
@@ -303,6 +312,7 @@ def test_print0_list_output() -> None:
     assert result.output == "alpha\0beta\0gamma"
 
 
+@_XFAIL_PY310
 def test_print0_output_round_trip_with_null_input() -> None:
     """--print0 output should interoperate with --null input parsing."""
     app = Tooli(name="test-app")
@@ -326,6 +336,7 @@ def test_print0_output_round_trip_with_null_input() -> None:
     assert parsed.output.count("\0") == 0
 
 
+@_XFAIL_PY310
 def test_null_input_parsing_for_list_commands() -> None:
     """--null should parse NUL-delimited list input for list-processing commands."""
     app = Tooli(name="test-app")
@@ -419,7 +430,13 @@ def test_internal_error_with_verbose() -> None:
 
 def test_error_category_exit_codes() -> None:
     """Each ToolError category should map to the expected exit code."""
-    from tooli.errors import AuthError, InternalError, InputError, ToolRuntimeError, StateError
+    from tooli.errors import (
+        AuthError,
+        InputError,
+        InternalError,
+        StateError,
+        ToolRuntimeError,
+    )
 
     categories = [
         ("input", InputError, 2),

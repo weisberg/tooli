@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+
 from tooli import Tooli
 from tooli.testing import TooliTestClient
 
@@ -22,7 +23,7 @@ def test_docs_llms_generation() -> None:
         assert result.exit_code == 0
         assert os.path.exists("llms.txt")
         assert os.path.exists("llms-full.txt")
-        
+
         with open("llms.txt") as f:
             content = f.read()
             assert "# test-docs" in content
@@ -47,7 +48,7 @@ def test_docs_man_generation() -> None:
         result = client.invoke(["docs", "man"])
         assert result.exit_code == 0
         assert os.path.exists("test-man.1")
-        
+
         with open("test-man.1") as f:
             content = f.read()
             assert ".TH TEST-MAN" in content

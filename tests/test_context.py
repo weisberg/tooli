@@ -7,11 +7,14 @@ import json
 import types
 
 import pytest
-import typer
+import typer  # noqa: TC002
 from typer.testing import CliRunner
 
 from tooli import Tooli
-from tooli.context import _open_tty_prompt_stream, _prompt_device_path, _read_confirmation_response
+from tooli.context import (
+    _prompt_device_path,
+    _read_confirmation_response,
+)
 from tooli.errors import InputError
 
 

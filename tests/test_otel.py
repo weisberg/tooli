@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import types
+
 from typer.testing import CliRunner
 
 from tooli import Tooli

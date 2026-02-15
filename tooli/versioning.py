@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from itertools import zip_longest
 import re
+from dataclasses import dataclass
 from typing import Any
-
 
 _VERSION_SEPARATORS = re.compile(r"[.+-]")
 
@@ -70,9 +68,7 @@ def is_version_in_range(version: str, *, min_version: str | None = None, max_ver
 
     if min_version is not None and compare_versions(version, min_version) < 0:
         return False
-    if max_version is not None and compare_versions(version, max_version) > 0:
-        return False
-    return True
+    return not (max_version is not None and compare_versions(version, max_version) > 0)
 
 
 def _command_version(command: Any) -> str | None:

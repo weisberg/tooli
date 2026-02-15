@@ -6,9 +6,10 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable  # noqa: TC003
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,11 @@ def _to_timestamp(value: float) -> str:
 
 
 def _to_serializable(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, (str, int, float, bool)) or value is None: # noqa: UP038
         return value
     if isinstance(value, dict):
         return {str(k): _to_serializable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, (list, tuple, set)): # noqa: UP038
         return [_to_serializable(item) for item in value]
     return str(value)
 

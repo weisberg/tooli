@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, Annotated, get_args, get_origin, get_type_hints
 import os
+from pathlib import Path  # noqa: TC003
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
-import click
+import click  # noqa: TC002
 import typer
 
+from tooli.auth import AuthContext
 from tooli.command import TooliCommand
 from tooli.command_meta import CommandMeta
 from tooli.eval.recorder import build_invocation_recorder
-from tooli.auth import AuthContext
 from tooli.input import SecretInput, is_secret_input
+from tooli.providers.local import LocalProvider
 from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
+from tooli.transforms import ToolDef, Transform  # noqa: TC001
 from tooli.versioning import compare_versions
-from tooli.providers.local import LocalProvider
-from tooli.transforms import ToolDef, Transform, VisibilityTransform
 
 
 class Tooli(typer.Typer):
@@ -94,10 +93,10 @@ class Tooli(typer.Typer):
         tools: list[ToolDef] = []
         for provider in self._providers:
             tools.extend(provider.get_tools())
-            
+
         for transform in self._transforms:
             tools = transform.apply(tools)
-            
+
         return tools
 
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
@@ -106,7 +105,7 @@ class Tooli(typer.Typer):
         return sorted(tool.name for tool in self.get_tools() if not tool.hidden)
 
     def _register_builtins(self) -> None:
-        @self.command(name="generate-skill", hidden=True)
+        @self.command(name="generate-skill", hidden=True)  # type: ignore[untyped-decorator]
         def generate_skill(
             output: str = typer.Option("SKILL.md", help="Output file path"),
         ) -> None:
@@ -127,9 +126,11 @@ class Tooli(typer.Typer):
         @mcp_app.command(name="export")
         def mcp_export() -> None:
             """Export MCP tool definitions as JSON."""
-            from tooli.mcp.export import export_mcp_tools
             import json
+
             import click
+
+            from tooli.mcp.export import export_mcp_tools
 
             tools = export_mcp_tools(self)
             click.echo(json.dumps(tools, indent=2))
@@ -185,9 +186,11 @@ class Tooli(typer.Typer):
         @api_app.command(name="export-openapi")
         def api_export_openapi() -> None:
             """Export OpenAPI 3.1.0 schema as JSON."""
-            from tooli.api.openapi import generate_openapi_schema
             import json
+
             import click
+
+            from tooli.api.openapi import generate_openapi_schema
 
             schema = generate_openapi_schema(self)
             click.echo(json.dumps(schema, indent=2))
@@ -268,21 +271,37 @@ class Tooli(typer.Typer):
 
                 secret_params.append(param_name)
                 annotation = raw_annotation
-                if get_origin(annotation) is Annotated:
-                    annotation_args = get_args(annotation)
+
+                # Unwrap Optional/Union wrappers to find the inner Annotated type.
+                import types
+                from typing import Union
+                inner = annotation
+                is_optional = False
+                origin = get_origin(inner)
+                if origin is Union or origin is getattr(types, "UnionType", None):
+                    inner_args = [a for a in get_args(inner) if a is not type(None)]
+                    is_optional = len(get_args(inner)) > len(inner_args)
+                    if inner_args:
+                        inner = inner_args[0]
+
+                if get_origin(inner) is Annotated:
+                    annotation_args = get_args(inner)
                     if annotation_args:
                         base_annotation = annotation_args[0]
                         metadata = annotation_args[1:]
                         if base_annotation is SecretInput:
-                            annotation = str if not metadata else Annotated[str, *metadata]
+                            resolved = str if not metadata else Annotated[(str, *metadata)]
                         else:
-                            annotation = Annotated[str, *metadata] if metadata else str
+                            resolved = Annotated[(str, *metadata)] if metadata else str
+                        annotation = Union[resolved, None] if is_optional else resolved  # type: ignore[assignment]  # noqa: UP007
+                    else:
+                        annotation = str
                 else:
                     annotation = str
 
                 annotations_by_param[param_name] = annotation
 
-            setattr(func, "__annotations__", annotations_by_param)
+            func.__annotations__ = annotations_by_param
 
             meta = CommandMeta(
                 app_name=self.info.name or "tooli",
@@ -317,7 +336,7 @@ class Tooli(typer.Typer):
 
             return _wrap
 
-        def _wrap(func: Any) -> Any:
+        def _wrap(func: Any) -> Any:  # type: ignore[no-redef]
             _configure_callback(func)
             base_name = name or func.__name__.replace("_", "-")
             is_hidden = bool(kwargs.get("hidden", False))

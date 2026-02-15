@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 class Provider(ABC):
     """Base class for all tool providers."""
-    
+
     @abstractmethod
     def get_tools(self) -> list[ToolDef]:
         """Return a list of tool definitions from this provider."""

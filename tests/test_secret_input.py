@@ -5,15 +5,19 @@ from __future__ import annotations
 import io
 import json
 import warnings
-from pathlib import Path
+from pathlib import Path  # noqa: TC003
 from typing import Annotated
 
-import pytest
 import typer
 from typer.testing import CliRunner
 
 from tooli import SecretInput, Tooli
-from tooli.input import read_secret_value_from_file, read_secret_value_from_stdin, redact_secret_values, resolve_secret_value
+from tooli.input import (
+    read_secret_value_from_file,
+    read_secret_value_from_stdin,
+    redact_secret_values,
+    resolve_secret_value,
+)
 
 
 def test_resolve_secret_from_file(tmp_path: Path) -> None:

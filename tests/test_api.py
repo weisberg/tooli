@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 from tooli import Tooli
 from tooli.testing import TooliTestClient
 
@@ -19,7 +20,7 @@ def test_api_export_openapi() -> None:
     client = TooliTestClient(app)
     result = client.invoke(["api", "export-openapi"])
     assert result.exit_code == 0
-    
+
     schema = json.loads(result.output)
     assert schema["openapi"] == "3.1.0"
     assert "/compute" in schema["paths"]

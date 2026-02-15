@@ -7,6 +7,7 @@ import sys
 import types
 
 import pytest
+
 from tooli import Tooli
 from tooli.mcp.server import serve_mcp
 from tooli.testing import TooliTestClient
@@ -28,11 +29,11 @@ def test_mcp_export() -> None:
     client = TooliTestClient(app)
     result = client.invoke(["mcp", "export"])
     assert result.exit_code == 0
-    
+
     tools = json.loads(result.output)
     assert isinstance(tools, list)
     assert len(tools) >= 2
-    
+
     greet_tool = next(t for t in tools if t["name"] == "greet")
     assert greet_tool["description"] == "Greet someone."
     assert "name" in greet_tool["inputSchema"]["properties"]
