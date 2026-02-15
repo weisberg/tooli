@@ -270,3 +270,7 @@ def watch(
         "interval_seconds": interval,
         "snapshots": snapshots,
     }
+
+
+if __name__ == "__main__":
+    app()

@@ -221,3 +221,7 @@ def info(
     info["file_count"] = file_count
 
     return info
+
+
+if __name__ == "__main__":
+    app()

@@ -255,3 +255,7 @@ def _extract_by_heading(lines: list[str], heading: str) -> tuple[list[str] | Non
             break
 
     return lines[start_idx:end_idx], heading_level
+
+
+if __name__ == "__main__":
+    app()

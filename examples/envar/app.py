@@ -194,3 +194,7 @@ def export(
         "variables": data if format_ == "json" else None,
         "output": output if format_ != "json" else None,
     }
+
+
+if __name__ == "__main__":
+    app()

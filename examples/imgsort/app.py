@@ -268,3 +268,7 @@ def stats(
             "latest": max(dates),
         },
     }
+
+
+if __name__ == "__main__":
+    app()

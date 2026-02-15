@@ -249,3 +249,7 @@ def purge(
         "remaining": len(remaining),
         "purged_ids": [t["id"] for t in completed],
     }
+
+
+if __name__ == "__main__":
+    app()

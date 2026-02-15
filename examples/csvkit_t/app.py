@@ -331,3 +331,7 @@ def merge(
         "join_column": on,
         "rows": result_rows,
     }
+
+
+if __name__ == "__main__":
+    app()

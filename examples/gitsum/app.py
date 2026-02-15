@@ -292,3 +292,7 @@ def branch_health(
 
     results.sort(key=lambda r: r["age_days"], reverse=True)
     return results
+
+
+if __name__ == "__main__":
+    app()
