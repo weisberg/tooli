@@ -1,60 +1,106 @@
-# Tooli Lab: Agent-Native CLI Demo Suite
+# Tooli Examples
 
-This repository contains a suite of CLI tools designed to showcase the "Agent-First CLI Contract" enabled by [Tooli](https://github.com/weisberg/tooli).
+This directory contains complete CLI applications built with Tooli, demonstrating the full range of agent-native CLI features.
 
 ## The Agent-First CLI Contract
 
-Every tool in this lab adheres to these principles:
-1. **Discoverable**: Use `--schema` to see exactly what the tool can do.
-2. **Predictable**: Use `--json` or `--jsonl` for stable, machine-readable output.
-3. **Safe**: Destructive operations require `--yes` and support `--dry-run`.
-4. **Actionable**: Errors include `suggestions` that help agents self-correct.
-5. **Universal**: `StdinOr[T]` makes files, URLs, and pipes interchangeable.
+Every app in this directory adheres to these principles:
+
+1. **Discoverable** -- Use `--schema` to see exactly what the tool can do
+2. **Predictable** -- Use `--json` or `--jsonl` for stable, machine-readable output
+3. **Safe** -- Destructive operations require `--yes` and support `--dry-run`
+4. **Actionable** -- Errors include `suggestions` that help agents self-correct
+5. **Universal** -- `StdinOr[T]` makes files, URLs, and pipes interchangeable
 
 ---
 
-## The "Best Demo Flow"
+## Quick Start
 
-Try this sequence with any command (e.g., `repolens summary`):
+```bash
+# Install tooli with dev dependencies
+pip install -e ".[dev]"
+
+# Run any example app
+python -m examples.docq.app --help
+python -m examples.gitsum.app summary . --json
+python -m examples.taskr.app add "My task" --json
+```
+
+Every app also supports direct execution:
+
+```bash
+python examples/docq/app.py --help
+```
+
+---
+
+## Example Apps
+
+### Core Showcase (ReadOnly / OpenWorld)
+
+| App | Description | Key Features |
+|---|---|---|
+| **[note_indexer](note_indexer/)** | Markdown file indexer with query and export | ReadOnly, paginated, JSON index, structured errors |
+| **[docq](docq/)** | Document query tool for text/markdown analysis | ReadOnly, paginated, stdin input, multiple output formats |
+| **[gitsum](gitsum/)** | Git repository analyst | ReadOnly, subprocess integration, StdinOr for diffs |
+| **[csvkit_t](csvkit_t/)** | CSV data wrangling toolkit | StdinOr, JSONL output, paginated, OpenWorld |
+| **[syswatch](syswatch/)** | System health inspector | ReadOnly, paginated, structured errors, stdlib OS |
+
+### State Management (Destructive / Idempotent / DryRun)
+
+| App | Description | Key Features |
+|---|---|---|
+| **[taskr](taskr/)** | Local task manager with JSON storage | Idempotent, Destructive, paginated CRUD, state management |
+| **[proj](proj/)** | Project scaffolder with templates | Destructive, DryRunRecorder, Idempotent validation |
+| **[envar](envar/)** | Environment & secrets manager | SecretInput, AuthContext scopes, mixed annotations |
+| **[imgsort](imgsort/)** | Image organizer by metadata | Destructive+Idempotent, DryRunRecorder, batch operations |
+
+### Additional Examples
+
+| App | Description | Key Features |
+|---|---|---|
+| **[repolens](repolens/)** | Codebase structure scanner | Structured inventory, JSONL streaming |
+| **[patchpilot](patchpilot/)** | Safe file patch application | Dry-run planning, structured errors |
+| **[logslicer](logslicer/)** | Log file parser and query tool | StdinOr, JSONL event streaming |
+| **[datawrangler](datawrangler/)** | CSV/JSON data transforms | Input unification, response format variants |
+| **[secretscout](secretscout/)** | Local secret scanner | Structured findings, remediation suggestions |
+| **[envdoctor](envdoctor/)** | Environment diagnostics | Machine-readable checks, JSONL stream |
+| **[mediameta](mediameta/)** | Media metadata inspector | StdinOr for binary data, normalization |
+| **[configmigrate](configmigrate/)** | Config file validator/upgrader | Schema-driven discovery, migration hints |
+| **[artifactcatalog](artifactcatalog/)** | Document indexer and search | JSONL indexing, structured search |
+
+---
+
+## Demo Flow
+
+Try this sequence with any app to see the agent-first contract in action:
 
 ### 1. Introspect capabilities
+
 ```bash
-python -m examples.main repolens summary --schema
+python -m examples.docq.app stats --schema
 ```
 
 ### 2. Run in machine mode
+
 ```bash
-python -m examples.main repolens summary . --json
+python -m examples.docq.app stats README.md --json
 ```
 
 ### 3. Trigger a structured error
+
 ```bash
-# Run summary on a non-git directory to see the recovery suggestion
-python -m examples.main repolens summary /tmp --json
+python -m examples.docq.app stats nonexistent.md --json
 ```
 
 ### 4. Side-effect command with dry-run
+
 ```bash
-python -m examples.main patchpilot apply fix.diff --dry-run --json
+python -m examples.proj.app init my-project --template python --dry-run --json
 ```
 
 ### 5. Flip into MCP mode
+
 ```bash
-python -m examples.main mcp serve --transport stdio
+python -m examples.docq.app mcp serve --transport stdio
 ```
-
----
-
-## Included Apps
-
-| App | Demonstates |
-|---|---|
-| **RepoLens** | Structured inventory, JSONL streaming, schema introspection. |
-| **PatchPilot** | Dry-run planning, agent-safe behavior, structured errors. |
-| **LogSlicer** | `StdinOr` parity, JSONL event streaming, recovery suggestions. |
-| **DataWrangler** | Input unification, deterministic JSON, response format variants. |
-| **SecretScout** | Structured findings, smart ignore suggestions, opt-in telemetry. |
-| **EnvDoctor** | Machine-readable diagnostics, JSONL check stream. |
-| **MediaMeta** | `StdinOr` for binary data, dry-run for transcode pipelines. |
-| **ConfigMigrate** | Schema-driven discovery, actionable migration hints. |
-| **ArtifactCatalog** | JSONL indexing, structured search, one-click MCP serve. |
