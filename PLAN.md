@@ -1,6 +1,8 @@
 # Tooli Implementation Plan
 
-This document defines the implementation roadmap for Tooli as a sequence of GitHub issues. Each issue is scoped to be independently implementable and reviewable. Issues within a phase are ordered by dependency — later issues may depend on earlier ones.
+> **Status: Complete** -- All 38 issues across 3 phases have been implemented and merged. Tooli v1.0.0 has been released.
+
+This document defines the implementation roadmap for Tooli as a sequence of GitHub issues. Each issue is scoped to be independently implementable and reviewable. Issues within a phase are ordered by dependency -- later issues may depend on earlier ones.
 
 See [PRD.md](PRD.md) for full product requirements.
 

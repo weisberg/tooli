@@ -1,5 +1,10 @@
 # Tooli
 
+[![CI](https://github.com/weisberg/tooli/actions/workflows/ci.yml/badge.svg)](https://github.com/weisberg/tooli/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/tooli)](https://pypi.org/project/tooli/)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/tooli)](https://pypi.org/project/tooli/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 The agent-native CLI framework for Python. Write one function, get a CLI, an MCP tool, and a self-documenting schema.
 
 The name comes from "tool" + "CLI" = "tooli".
@@ -32,6 +37,13 @@ Tooli fixes all of this. One decorated function produces a CLI, a JSON Schema, a
 
 ```bash
 pip install tooli
+```
+
+Optional extras:
+
+```bash
+pip install tooli[mcp]   # MCP server support (fastmcp)
+pip install tooli[api]   # HTTP API server (starlette, uvicorn)
 ```
 
 ## Quick Start
@@ -264,6 +276,24 @@ Key design decisions:
 - **Pydantic schemas** — same pipeline as FastAPI and FastMCP
 - **Functions stay callable** — no mutation; test with `CliRunner` or call directly as Python
 
+## Examples
+
+The [`examples/`](examples/) directory contains 18 complete CLI apps built with Tooli, each demonstrating different features:
+
+| App | Features |
+|---|---|
+| **[docq](examples/docq/)** | ReadOnly, paginated, stdin input, output formats |
+| **[gitsum](examples/gitsum/)** | ReadOnly, subprocess, StdinOr for diffs |
+| **[csvkit_t](examples/csvkit_t/)** | StdinOr, JSONL output, paginated, OpenWorld |
+| **[syswatch](examples/syswatch/)** | ReadOnly, paginated, structured errors |
+| **[taskr](examples/taskr/)** | Idempotent, Destructive, paginated CRUD |
+| **[proj](examples/proj/)** | Destructive, DryRunRecorder, Idempotent |
+| **[envar](examples/envar/)** | SecretInput, AuthContext scopes |
+| **[imgsort](examples/imgsort/)** | Destructive+Idempotent, DryRunRecorder, batch ops |
+| **[note_indexer](examples/note_indexer/)** | ReadOnly, paginated, JSON index, error handling |
+
+See the [examples README](examples/README.md) for the full list and usage guide.
+
 ## Development
 
 ```bash
@@ -271,11 +301,16 @@ Key design decisions:
 git clone https://github.com/weisberg/tooli.git
 cd tooli
 pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Lint and type check
+ruff check .
+mypy tooli
 ```
 
-## Roadmap
-
-See [PRD.md](PRD.md) for the full product requirements document, including detailed architecture, implementation phases, and success metrics.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
