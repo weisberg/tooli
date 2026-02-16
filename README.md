@@ -5,33 +5,48 @@
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/tooli)](https://pypi.org/project/tooli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The agent-native CLI framework for Python. Write one function, get a CLI, an MCP tool, and a self-documenting schema.
-
-The name comes from "tool" + "CLI" = "tooli".
+**The agent-native CLI framework for Python.** Write one function, get a CLI, an MCP tool, and a self-documenting schema.
 
 Tooli turns typed Python functions into CLI commands that are simultaneously human-friendly (Rich output, shell completions) and machine-consumable (JSON schemas, structured output, MCP compatibility). No separate "agent version" of your tool required.
 
-## Why Tooli?
+The name comes from "tool" + "CLI" = "tooli".
+
+---
+
+## The Problem
 
 AI agents invoke thousands of CLI commands daily, but standard CLIs were designed for humans:
 
 - **Interactive prompts hang agents** that can't navigate pagers or password dialogs
-- **Unstructured output wastes tokens** — agents parse text with regex instead of reading JSON
-- **Vague errors prevent self-correction** — "Error: invalid input" gives agents nothing to work with
-- **No discoverability** — agents hallucinate flags for undocumented tools
+- **Unstructured output wastes tokens** -- agents parse text with regex instead of reading JSON
+- **Vague errors prevent self-correction** -- "Error: invalid input" gives agents nothing to work with
+- **No discoverability** -- agents hallucinate flags for undocumented tools
 
-Tooli fixes all of this. One decorated function produces a CLI, a JSON Schema, an MCP tool definition, structured errors with recovery suggestions, and auto-generated documentation — from a single source of truth.
+Tooli treats the CLI as a **structured protocol** rather than a text interface. One decorated function produces a CLI command, a JSON Schema, an MCP tool definition, structured errors with recovery suggestions, and auto-generated documentation -- all from a single source of truth.
 
-## Features
+---
 
-- **Dual-mode output** — Rich tables for humans, JSON/JSONL for agents, auto-detected via TTY
-- **Structured errors** — actionable error objects with suggestion fields that guide agent self-correction
-- **Schema generation** — JSON Schema from type hints, compatible with MCP `inputSchema` and OpenAI function-calling
-- **MCP server mode** — serve your CLI as an MCP tool server over stdio or HTTP with zero extra code
-- **SKILL.md generation** — auto-generated agent-readable documentation, always in sync with code
-- **stdin/file parity** — `StdinOr[T]` type makes files, URLs, and piped data interchangeable
-- **Standard global flags** — `--json`, `--jsonl`, `--plain`, `--quiet`, `--dry-run`, `--schema` injected automatically
-- **Agent-safe by default** — no interactive prompts in non-TTY mode, no stdout pollution, strict exit codes
+## Current State (v1.0)
+
+Tooli v1.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 199 tests passing across Python 3.10, 3.11, and 3.12.
+
+### What ships today
+
+| Category | Features |
+|---|---|
+| **Output** | Dual-mode (Rich for TTY, JSON/JSONL for agents), auto-detected. Standard envelope: `{ok, result, meta}` |
+| **Errors** | Typed hierarchy (`InputError`, `AuthError`, `StateError`, `ToolRuntimeError`, `InternalError`) with structured suggestions for agent self-correction |
+| **Schemas** | JSON Schema from type hints, compatible with MCP `inputSchema` and OpenAI function-calling. `$ref` dereferencing for broad client compatibility |
+| **MCP** | Serve any Tooli app as an MCP tool server over stdio, HTTP, or SSE -- zero extra code |
+| **Input** | `StdinOr[T]` unifies files, URLs, and piped stdin. `SecretInput[T]` with automatic redaction |
+| **Safety** | Behavioral annotations (`ReadOnly`, `Destructive`, `Idempotent`, `OpenWorld`), `@dry_run_support`, security policies (OFF/STANDARD/STRICT), auth scopes |
+| **Docs** | Auto-generated SKILL.md, llms.txt, Unix man pages -- always in sync with code |
+| **Pagination** | Cursor-based with `--limit`, `--cursor`, `--fields`, `--filter` |
+| **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans |
+| **Extensibility** | Provider system (local, filesystem), transform pipeline (namespace, visibility), tool versioning |
+| **HTTP API** | OpenAPI 3.1 schema generation + Starlette server (experimental) |
+
+---
 
 ## Installation
 
@@ -43,8 +58,10 @@ Optional extras:
 
 ```bash
 pip install tooli[mcp]   # MCP server support (fastmcp)
-pip install tooli[api]   # HTTP API server (starlette, uvicorn)
+pip install tooli[api]   # HTTP API server (starlette, uvicorn) -- experimental
 ```
+
+---
 
 ## Quick Start
 
@@ -132,15 +149,12 @@ $ file-tools find-files --schema
 ```bash
 $ file-tools mcp serve --transport stdio
 $ file-tools mcp serve --transport http --host 127.0.0.1 --port 8080
+$ file-tools mcp serve --transport sse --host 127.0.0.1 --port 8080
 ```
 
 Add to your MCP client config and every command becomes a tool.
 
-For SSE-enabled clients, use:
-
-```bash
-$ file-tools mcp serve --transport sse --host 127.0.0.1 --port 8080
-```
+---
 
 ## Structured Errors
 
@@ -164,6 +178,8 @@ $ file-tools find-files "*.rs" --root ./src --json
 }
 ```
 
+---
+
 ## Output Modes
 
 Tooli auto-detects the right output format, or you can be explicit:
@@ -176,39 +192,7 @@ Tooli auto-detects the right output format, or you can be explicit:
 | `--plain` | Unformatted text for grep/awk pipelines |
 | `--quiet` | Suppress non-essential output |
 
-## Optional Telemetry
-
-Tooli supports anonymous, opt-in usage telemetry for tool authors.
-
-- Disabled by default.
-- Enable with `TOOLI_TELEMETRY=true` or `Tooli(telemetry=True)`.
-- Records only command identifiers, duration (ms), success/failure outcome, and exit/error codes.
-- No command arguments or command output payloads are recorded.
-- Local-first by default to `~/.config/tooli/telemetry/events.jsonl`.
-- Remote forwarding is opt-in via `TOOLI_TELEMETRY_ENDPOINT` or `Tooli(telemetry_endpoint=...)`.
-- Retention policy is local-only by default: entries older than 30 days are pruned.
-
-## Dry-Run Planning
-
-Tooli supports opt-in dry-run planning via `@dry_run_support`.
-
-- Decorate command functions with `@dry_run_support`.
-- Use `record_dry_action(action, target, details={...})` to add plan steps.
-- Invoke with `--dry-run` to return the action plan instead of executing side effects.
-- In JSON output, dry-run responses set `meta.dry_run` to `true`.
-
-## Auto-Generated Documentation
-
-```bash
-# Agent-readable skill documentation
-$ file-tools generate-skill > SKILL.md
-
-# LLM-friendly docs (llms.txt standard)
-$ file-tools docs llms
-
-# Unix man page
-$ file-tools docs man
-```
+---
 
 ## Input Unification
 
@@ -232,6 +216,52 @@ $ file-tools process https://example.com/data.csv
 $ cat data.csv | file-tools process -
 ```
 
+---
+
+## Dry-Run Planning
+
+Preview side effects before executing:
+
+```python
+from tooli import dry_run_support, record_dry_action
+
+@app.command(annotations=Destructive)
+@dry_run_support
+def deploy(target: str) -> dict:
+    record_dry_action("upload", target, details={"size": "12MB"})
+    record_dry_action("restart", f"{target}-service")
+    # ... actual deployment logic
+```
+
+```bash
+$ file-tools deploy production --dry-run --json
+{
+  "ok": true,
+  "result": [
+    {"action": "upload", "target": "production", "details": {"size": "12MB"}},
+    {"action": "restart", "target": "production-service"}
+  ],
+  "meta": {"dry_run": true}
+}
+```
+
+---
+
+## Auto-Generated Documentation
+
+```bash
+# Agent-readable skill documentation
+$ file-tools generate-skill > SKILL.md
+
+# LLM-friendly docs (llms.txt standard)
+$ file-tools docs llms
+
+# Unix man page
+$ file-tools docs man
+```
+
+---
+
 ## Global Flags
 
 Every Tooli command automatically gets:
@@ -252,6 +282,8 @@ Every Tooli command automatically gets:
 --help-agent       Token-optimized help for agents
 ```
 
+---
+
 ## Architecture
 
 Tooli builds on the Python typing + decorator pipeline, adding a parallel schema generation path:
@@ -259,22 +291,24 @@ Tooli builds on the Python typing + decorator pipeline, adding a parallel schema
 ```
           @app.command()
      Python function + type hints
-            │              │
-            ▼              ▼
+            |              |
+            v              v
       CLI Pipeline    Schema Pipeline
-     → CLI params     → Pydantic model
-     → CLI parser     → JSON Schema
-            │              │
-            ▼              ▼
+     -> CLI params     -> Pydantic model
+     -> CLI parser     -> JSON Schema
+            |              |
+            v              v
       CLI Output       Agent Output
       Rich tables      MCP tool schema
       Completions      SKILL.md / JSON
 ```
 
 Key design decisions:
-- **Library-first API** — the public surface is Tooli-native (no framework objects leaked into user code)
-- **Pydantic schemas** — same pipeline as FastAPI and FastMCP
-- **Functions stay callable** — no mutation; test with `CliRunner` or call directly as Python
+- **Library-first API** -- the public surface is Tooli-native (no framework objects leaked into user code)
+- **Pydantic schemas** -- same pipeline as FastAPI and FastMCP
+- **Functions stay callable** -- no mutation; test with `CliRunner` or call directly as Python
+
+---
 
 ## Examples
 
@@ -292,7 +326,82 @@ The [`examples/`](examples/) directory contains 18 complete CLI apps built with 
 | **[imgsort](examples/imgsort/)** | Destructive+Idempotent, DryRunRecorder, batch ops |
 | **[note_indexer](examples/note_indexer/)** | ReadOnly, paginated, JSON index, error handling |
 
-See the [examples README](examples/README.md) for the full list and usage guide.
+See the [examples README](examples/README.md) for the full list of 18 apps and usage guide.
+
+---
+
+## Roadmap to v2.0
+
+Tooli v1.0 solves the core problem: making CLIs that work equally well for humans and agents. v2.0 will focus on **multi-agent ecosystems**, **production hardening**, and **ecosystem integration**.
+
+### Streaming and async-first
+
+v1.0 commands are synchronous and return complete results. v2.0 will add first-class support for async commands and streaming output -- critical for long-running operations where agents need incremental progress rather than waiting for a full result.
+
+- `async def` commands with native `asyncio` support
+- Streaming JSONL output for commands that produce results incrementally
+- Server-Sent Events for real-time progress reporting through MCP and HTTP transports
+- Cancellation propagation -- when an agent cancels a tool call, the underlying async task is cancelled cleanly
+
+### Tool composition and pipelines
+
+Today, each Tooli command is an isolated unit. v2.0 will enable composing commands into pipelines where the output of one feeds the input of the next, with type safety preserved across the chain.
+
+- Typed pipe operator: `app.pipe(scan, filter, transform)` with schema validation between stages
+- Pipeline schema export -- agents see the full pipeline as a single compound tool
+- Partial results on pipeline failure -- if stage 3 of 5 fails, return what succeeded plus the error
+
+### Multi-tool orchestration
+
+Agents often need to coordinate multiple tools in a session. v2.0 will support stateful tool sessions where context carries across invocations.
+
+- Session context -- tools within a session share state (e.g., a database connection, a working directory, accumulated results)
+- Transaction boundaries -- group destructive operations into atomic units that roll back on failure
+- Tool dependency declarations -- `@app.command(requires=["auth.login"])` so agents know prerequisites
+
+### Plugin ecosystem
+
+v1.0's provider system supports local functions and filesystem modules. v2.0 will expand this to a full plugin architecture.
+
+- `pip install tooli-plugin-*` auto-discovery via entry points
+- Remote tool providers -- import tools from running MCP servers or HTTP endpoints
+- Tool marketplace registry -- publish and discover Tooli tools
+
+### Production observability
+
+v1.0 has opt-in telemetry and invocation recording. v2.0 will add production-grade observability.
+
+- Structured audit logs for compliance (who called what, when, with what arguments)
+- Cost tracking per tool invocation (wall time, tokens consumed by the calling agent, API calls made)
+- Rate limiting and quota management -- per-tool, per-agent, configurable
+- Health check endpoints for deployed tool servers
+
+### Smarter error recovery
+
+v1.0 errors include static suggestions. v2.0 will make error recovery dynamic and context-aware.
+
+- Error suggestion functions -- instead of static strings, compute suggestions based on the actual error context and available state
+- Automatic retry with suggested modifications -- when `is_retryable` is true and a concrete `example` is provided, the framework can retry automatically
+- Error aggregation -- batch operations report all failures at once instead of stopping at the first
+
+### Enhanced security model
+
+- Capability-based permissions -- tools declare the capabilities they need (`fs:read`, `net:outbound`, `env:read`), and the runtime enforces them
+- Sandboxed execution -- run tool commands in isolated environments with restricted filesystem and network access
+- Signed tool manifests -- verify tool integrity before execution in zero-trust agent environments
+
+### Developer experience
+
+- `tooli init` scaffolding command -- generate a new Tooli project with best-practice structure
+- `tooli test` contract runner -- validate that your tool's schema, output, and error contracts haven't broken
+- Hot-reload development server -- edit a command, see the change immediately in MCP clients
+- Visual tool inspector -- browser-based UI to explore schemas, test commands, and view invocation history
+
+### Timeline
+
+The v2.0 roadmap will be developed incrementally as minor releases (v1.1, v1.2, ...) with backward-compatible additions. Breaking changes will be accumulated and shipped together as v2.0 when the async runtime and composition primitives are stable.
+
+---
 
 ## Development
 
