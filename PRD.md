@@ -2,7 +2,7 @@
 
 **Version:** 2.0
 **Date:** 2026-02-16
-**Status:** v2.0 release aligned; v2.x hardening and migration details continue in phased milestones.
+**Status:** Implemented (v2.0.x), with v2 roadmap planned.
 
 ## 1.x Milestone Progress
 

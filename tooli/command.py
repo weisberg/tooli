@@ -801,7 +801,7 @@ def _build_envelope_meta(
 class TooliCommand(TyperCommand):
     """TyperCommand subclass with Tooli global flags and output routing."""
 
-    def main(
+    def main(  # type: ignore[override]
         self,
         args: list[str] | None = None,
         prog_name: str | None = None,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import inspect
 import logging
 import sys
@@ -11,6 +10,8 @@ from typing import TYPE_CHECKING, Any
 from tooli.schema import generate_tool_schema  # type: ignore[import-not-found]
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from tooli.app import Tooli
     from tooli.transforms import ToolDef
 
@@ -157,28 +158,28 @@ def _build_run_tool(app: Tooli) -> Any:
 
 def _build_resource_callable(callback: Callable[..., Any]) -> Any:
     if inspect.iscoroutinefunction(callback):
-        async def _resource() -> Any:
+        async def _resource_async() -> Any:
             return await callback()
 
-        return _resource
+        return _resource_async
 
-    def _resource() -> Any:
+    def _resource_sync() -> Any:
         return callback()
 
-    return _resource
+    return _resource_sync
 
 
 def _build_prompt_callable(callback: Callable[..., Any]) -> Any:
     if inspect.iscoroutinefunction(callback):
-        async def _prompt() -> str:
+        async def _prompt_async() -> str:
             return str(await callback())
 
-        return _prompt
+        return _prompt_async
 
-    def _prompt() -> str:
+    def _prompt_sync() -> str:
         return str(callback())
 
-    return _prompt
+    return _prompt_sync
 
 
 def _register_resource(mcp: Any, callback: Callable[..., Any], *, uri: str, name: str, description: str | None, mime_type: str | None) -> None:
