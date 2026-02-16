@@ -20,6 +20,7 @@ class CommandMeta:
     """
 
     # App-level
+    app: Any | None = None
     app_name: str = "tooli"
     app_version: str = "0.0.0"
     default_output: str = "auto"
@@ -47,6 +48,8 @@ class CommandMeta:
     requires_approval: bool = False
     danger_level: str | None = None
     allow_python_eval: bool = False
+    output_example: Any | None = None
+    output_schema: dict[str, Any] | None = None
     secret_params: list[str] = field(default_factory=list)
 
 

@@ -253,6 +253,8 @@ $ file-tools deploy production --dry-run --json
 ```bash
 # Agent-readable skill documentation
 $ file-tools generate-skill > SKILL.md
+$ file-tools generate-skill --format manifest > agent-manifest.json
+$ file-tools generate-skill --format claude-md > CLAUDE.md
 
 # LLM-friendly docs (llms.txt standard)
 $ file-tools docs llms
@@ -260,6 +262,15 @@ $ file-tools docs llms
 # Unix man page
 $ file-tools docs man
 ```
+
+Useful validation and automation flows:
+
+- `file-tools generate-skill --validate` checks that generated SKILL.md is complete.
+- `file-tools generate-skill --detail-level summary` keeps large toolsets within agent token budgets.
+- `file-tools generate-skill --infer-workflows` auto-derives simple workflow examples.
+- `file-tools eval agent-test` runs an end-to-end contract validation for schema, envelope, and error handling.
+
+Migration guidance for v3: see [`MIGRATION_GUIDE_v3.md`](MIGRATION_GUIDE_v3.md).
 
 ---
 

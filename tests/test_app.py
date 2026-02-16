@@ -278,7 +278,7 @@ def test_response_format_flag_is_stored() -> None:
 
 
 def test_help_agent_flag_output() -> None:
-    """--help-agent should emit compact command metadata."""
+    """--help-agent should emit structured YAML metadata."""
     app = Tooli(name="test-app")
 
     @app.command()
@@ -291,10 +291,10 @@ def test_help_agent_flag_output() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["render", "item", "--help-agent", "--text"])
     assert result.exit_code == 0
-    assert "command render:" in result.output
-    assert "help=" in result.output
-    assert "params=" in result.output
-    assert "item" in result.output or "name" in result.output
+    assert "command: render" in result.output
+    assert "description:" in result.output
+    assert "params:" in result.output
+    assert "output:" in result.output
 
 
 def test_yes_skip_prompt() -> None:
@@ -595,11 +595,173 @@ def test_help_agent_output_includes_annotations() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["remove-item", "--help-agent", "--text"])
     assert result.exit_code == 0
-    assert "annotations=destructive" in result.output
-    assert "cost_hint=medium" in result.output
-    assert "human_in_the_loop=true" in result.output
+    assert "- destructive" in result.output
+    assert "cost_hint" in result.output
+    assert "human_in_the_loop: true" in result.output
 
 
+def test_agent_manifest_flag_emits_manifest() -> None:
+    """Global --agent-manifest should emit tool metadata and command list."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def status() -> str:
+        return "ok"
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["status", "--agent-manifest", "--text"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["tool"]["name"] == "test-app"
+    assert payload["tool"]["version"] == "0.0.0"
+    assert any(command["name"] == "status" for command in payload["commands"])
+
+
+def test_generate_skill_manifest_output_file(tmp_path: Path) -> None:
+    """generate-skill supports manifest output mode."""
+    app = Tooli(name="generate-app", help="Generate docs")
+
+    @app.command(annotations=ReadOnly)
+    def info(value: str) -> str:
+        return value
+
+    manifest_path = tmp_path / "agent-manifest.json"
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["generate-skill", "--format", "manifest", "--output-path", str(manifest_path)],
+    )
+    assert result.exit_code == 0
+    assert manifest_path.exists()
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["tool"]["name"] == "generate-app"
+    assert payload["manifest_version"] == "3.0"
+    assert any(command["name"] == "info" for command in payload["commands"])
+
+
+def test_generate_skill_output_alias(tmp_path: Path) -> None:
+    """generate-skill supports both --output and --output-path."""
+    app = Tooli(name="generate-output")
+
+    @app.command()
+    def info(value: str) -> str:
+        return value
+
+    output_path = tmp_path / "skill-doc.md"
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["generate-skill", "--format", "skill", "--output", str(output_path)],
+    )
+    assert result.exit_code == 0
+    assert output_path.exists()
+    content = output_path.read_text(encoding="utf-8")
+    assert content.startswith("---")
+
+
+def test_generate_claude_md_command(tmp_path: Path) -> None:
+    """generate-claude-md writes CLAUDE.md to a configurable output path."""
+    app = Tooli(name="generate-doc")
+
+    @app.command()
+    def info(value: str) -> str:
+        return value
+
+    claude_path = tmp_path / "agent-notes.md"
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["generate-claude-md", "--output", str(claude_path)],
+    )
+    assert result.exit_code == 0
+    assert claude_path.exists()
+    content = claude_path.read_text(encoding="utf-8")
+    assert "## Project overview" in content
+
+
+def test_generate_skill_format_pipeline_integration(tmp_path: Path) -> None:
+    """Integration run covers all generate-skill formats and validation mode."""
+    app = Tooli(name="pipeline-app", help="Pipeline validation app")
+
+    @app.command()
+    def status(value: Annotated[str, Option(help="Status value")]) -> str:
+        return value
+
+    @app.command()
+    def echo(value: Annotated[str, Option(help="Echo value")]) -> str:
+        return value
+
+    runner = CliRunner()
+    skill_path = tmp_path / "SKILL.md"
+    manifest_path = tmp_path / "agent-manifest.json"
+    claude_path = tmp_path / "CLAUDE.md"
+
+    assert (
+        runner.invoke(app, ["generate-skill", "--format", "claude-skill", "--output", str(skill_path), "--validate"]).exit_code
+        == 0
+    )
+    assert skill_path.exists()
+    assert "## Quick Reference" in skill_path.read_text(encoding="utf-8")
+
+    assert (
+        runner.invoke(
+            app,
+            [
+                "generate-skill",
+                "--format",
+                "manifest",
+                "--output",
+                str(manifest_path),
+            ],
+        ).exit_code
+        == 0
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["tool"]["name"] == "pipeline-app"
+    assert manifest["manifest_version"] == "3.0"
+
+    assert (
+        runner.invoke(
+            app,
+            ["generate-skill", "--format", "claude-md", "--output", str(claude_path)],
+        ).exit_code
+        == 0
+    )
+    assert "## Important patterns" in claude_path.read_text(encoding="utf-8")
+
+
+def test_eval_agent_test_command(tmp_path: Path) -> None:
+    """eval agent-test emits a structured report for selected commands."""
+    app = Tooli(name="agent-test-app")
+
+    @app.command()
+    def status(value: Annotated[str, Option(help="Status value")]) -> str:
+        return value
+
+    @app.command(supports_dry_run=True)
+    def noop() -> str:
+        return "ok"
+
+    report_path = tmp_path / "agent_test_report.json"
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        [
+            "eval",
+            "agent-test",
+            "--commands",
+            "status,noop",
+            "--output",
+            str(report_path),
+        ],
+    )
+    assert result.exit_code == 0
+    assert report_path.exists()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["tool"] == "agent-test-app"
+    assert payload["tests_run"] > 0
+    assert payload["tests_failed"] == len(payload["failures"])
 def test_schema_output_includes_annotations_object() -> None:
     """--schema should expose MCP-style annotations."""
     app = Tooli(name="test-app")

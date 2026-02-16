@@ -16,6 +16,7 @@ from typer.main import TyperGroup  # type: ignore[attr-defined]
 from tooli.auth import AuthContext
 from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
 from tooli.command_meta import CommandMeta, PromptMeta, ResourceMeta, get_command_meta
+from tooli.backends.native import NativeArgument, NativeOption, translate_marker
 from tooli.eval.recorder import build_invocation_recorder
 from tooli.input import SecretInput, is_secret_input
 from tooli.providers.local import LocalProvider
@@ -96,6 +97,13 @@ class Tooli(typer.Typer):
     def __init__(
         self,
         *args: Any,
+        backend: str = "typer",
+        description: str | None = None,
+        triggers: list[str] | None = None,
+        anti_triggers: list[str] | None = None,
+        workflows: list[dict[str, Any]] | None = None,
+        rules: list[str] | None = None,
+        env_vars: dict[str, Any] | None = None,
         version: str = "0.0.0",
         default_output: str = "auto",
         mcp_transport: str = "stdio",
@@ -110,7 +118,17 @@ class Tooli(typer.Typer):
         record: bool | str | None = None,
         **kwargs: Any,
     ) -> None:
+        if backend not in {"typer", "native"}:
+            raise ValueError("backend must be 'typer' or 'native'")
+        backend_requested = backend
+        if backend == "native":
+            # Native backend is currently scaffolded but currently routes through
+            # Typer-compatible command metadata handling for compatibility.
+            backend = "typer"
         kwargs.setdefault("cls", TooliGroup)
+        if description is not None and kwargs.get("help") is None:
+            kwargs["help"] = description
+
         super().__init__(*args, **kwargs)
 
         # Tooli-specific configuration
@@ -118,6 +136,12 @@ class Tooli(typer.Typer):
         self.default_output = default_output
         self.mcp_transport = mcp_transport
         self.skill_auto_generate = skill_auto_generate
+        self.triggers = list(triggers or [])
+        self.anti_triggers = list(anti_triggers or [])
+        self.workflows = list(workflows or [])
+        self.rules = list(rules or [])
+        self.env_vars = env_vars or {}
+        self.backend = backend_requested
         self.permissions = permissions or {}
         self.security_policy = resolve_security_policy(security_policy)
         self.auth_context = AuthContext.from_env(programmatic_scopes=auth_scopes)
@@ -224,19 +248,82 @@ class Tooli(typer.Typer):
         return _wrap
 
     def _register_builtins(self) -> None:
-        @self.command(name="generate-skill", hidden=True)  # type: ignore[untyped-decorator]
+        @self.command(name="generate-skill", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
         def generate_skill(
-            output: str = typer.Option("SKILL.md", help="Output file path"),
+            output_path: str | None = typer.Option(
+                "SKILL.md",
+                "--output-path",
+                "--output",
+                help="Output file path",
+            ),
+            detail_level: str = typer.Option(
+                "auto",
+                help="Skill detail level: auto|summary|full",
+            ),
+            format_: str = typer.Option(
+                "claude-skill",
+                "--format",
+                help="Output format: skill|manifest|claude-skill",
+                show_default=True,
+            ),
+            validate: bool = typer.Option(False, help="Validate generated SKILL content before writing."),
+            infer_workflows: bool = typer.Option(False, help="Infer workflow patterns in generated docs."),
         ) -> None:
             """Generate SKILL.md for this application."""
-            from tooli.docs.skill import generate_skill_md
-
-            content = generate_skill_md(self)
-            with open(output, "w") as f:
-                f.write(content)
             import click
 
-            click.echo(f"Generated {output}")
+            from tooli.docs.skill import generate_skill_md, validate_skill_doc
+            from tooli.docs.claude_md import generate_claude_md
+            from tooli.manifest import manifest_as_json
+            if detail_level not in {"auto", "summary", "full"}:
+                raise click.BadParameter("detail_level must be auto, summary, or full.")
+            if format_ not in {"skill", "manifest", "claude-skill", "claude-md"}:
+                raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
+
+            if format_ == "manifest":
+                content = manifest_as_json(self)
+            elif format_ in {"skill", "claude-skill"}:
+                content = generate_skill_md(
+                    self,
+                    detail_level=detail_level,
+                    infer_workflows=infer_workflows,
+                )
+            elif format_ == "claude-md":
+                content = generate_claude_md(self)
+            else:
+                # Unreachable due prior validation, retained for defensive parity.
+                raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
+
+            if validate and format_ != "manifest":
+                validation = validate_skill_doc(content)
+                if not validation["valid"]:
+                    issues = "\n".join(
+                        issue["message"] for issue in validation.get("issues", [])
+                    )
+                    raise click.ClickException(f"Generated skill validation failed:\n{issues}")
+
+            if output_path == "-":
+                click.echo(content)
+            else:
+                if output_path is None:
+                    output_path = "SKILL.md" if format_ == "skill" else "CLAUDE.md"
+                with open(output_path, "w") as f:
+                    f.write(content)
+                click.echo(f"Generated {output_path}")
+
+        @self.command(name="generate-claude-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
+        def generate_claude_md_command(
+            output_path: str = typer.Option("CLAUDE.md", "--output-path", "--output", help="Output file path"),
+        ) -> None:
+            """Generate CLAUDE.md for this application."""
+            import click
+
+            from tooli.docs.claude_md import generate_claude_md
+
+            content = generate_claude_md(self)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            click.echo(f"Generated {output_path}")
 
         # MCP group
         mcp_app = typer.Typer(name="mcp", help="MCP server utilities", hidden=True)
@@ -429,6 +516,27 @@ class Tooli(typer.Typer):
 
             return analyze_invocations(log_path)
 
+        @eval_app.command(name="agent-test", cls=typer.main.TyperCommand)
+        def eval_agent_test(
+            commands: str | None = None,
+            output: str | None = None,
+            output_path: str | None = None,
+        ) -> dict[str, Any]:
+            """Run a minimal synthetic harness to validate agent-facing behavior."""
+            from tooli.eval.agent_test import run_agent_tests
+            import click
+            import json
+
+            command_names = [name.strip() for name in commands.split(",")] if commands else []
+            report = run_agent_tests(
+                app=self,
+                command_names=command_names or None,
+                output_path=output_path or output,
+            )
+            if output is None and output_path is None:
+                click.echo(json.dumps(report, indent=2, sort_keys=True))
+            return report
+
     def command(
         self,
         name: str | None = None,
@@ -447,6 +555,7 @@ class Tooli(typer.Typer):
         requires_approval: bool = False,
         danger_level: str | None = None,
         allow_python_eval: bool = False,
+        output_example: Any | None = None,
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
@@ -461,6 +570,21 @@ class Tooli(typer.Typer):
         kwargs.setdefault("cls", TooliCommand)
         kwargs.setdefault("deprecated", deprecated)
 
+        def _normalize_backend_metadata(annotation: Any) -> Any:
+            if get_origin(annotation) is not Annotated:
+                return annotation
+
+            args = get_args(annotation)
+            if len(args) <= 1:
+                return annotation
+
+            base_annotation = args[0]
+            translated = [base_annotation]
+            for marker in args[1:]:
+                translated.append(translate_marker(marker))
+
+            return Annotated[tuple(translated)] if len(translated) != 2 else Annotated[base_annotation, translated[1]]
+
         def _configure_callback(func: Any) -> None:
             # Preserve SecretInput markers for prompt/hidden-value redaction while
             # normalizing annotations for Typer argument parsing.
@@ -470,6 +594,7 @@ class Tooli(typer.Typer):
             except Exception:
                 annotations_by_param = dict(func.__annotations__)
             for param_name, raw_annotation in annotations_by_param.items():
+                annotations_by_param[param_name] = _normalize_backend_metadata(raw_annotation)
                 if not is_secret_input(raw_annotation):
                     continue
 
@@ -508,6 +633,7 @@ class Tooli(typer.Typer):
             func.__annotations__ = annotations_by_param
 
             meta = CommandMeta(
+                app=self,
                 app_name=self.info.name or "tooli",
                 app_version=self.version,
                 default_output=self.default_output,
@@ -527,6 +653,7 @@ class Tooli(typer.Typer):
                 requires_approval=requires_approval,
                 danger_level=danger_level,
                 allow_python_eval=allow_python_eval,
+                output_example=output_example,
                 list_processing=bool(list_processing),
                 paginated=bool(paginated),
                 version=None if version is None else str(version),

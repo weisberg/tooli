@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No entries yet.
+### Added
+- Added v3 documentation workflow primitives:
+  - `generate-skill --validate`, `--infer-workflows`, `--output`, and manifest/Claude output modes.
+  - SKILL.md token-budget estimation helper (`estimate_skill_tokens`) and corresponding regression tests.
+- Added `MIGRATION_GUIDE_v3.md` with explicit v2→v3 migration steps.
+- Added native backend marker support for `tooli.backends.native.Argument` and `Option` to accept
+  keyword metadata (`help=`, `is_flag=`, etc.) and native `--help-agent` YAML-like output.
 
 ## [2.0.0] - 2026-02-16
 
