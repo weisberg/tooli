@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v1.0)
+## Current State (v1.1)
 
-Tooli v1.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 199 tests passing across Python 3.10, 3.11, and 3.12.
+Tooli v1.1 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 199 tests passing across Python 3.10, 3.11, and 3.12.
 
 ### What ships today
 
@@ -73,7 +73,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 @app.command(
@@ -120,7 +120,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "1.0.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "1.1.0", "duration_ms": 34}
 }
 ```
 

@@ -1,6 +1,6 @@
 # Tooli Implementation Plan
 
-> **Status: Complete** -- All 38 issues across 3 phases have been implemented and merged. Tooli v1.0.0 has been released.
+> **Status: Complete** -- All 38 issues across 3 phases have been implemented and merged. Tooli v1.1.x has been released.
 
 This document defines the implementation roadmap for Tooli as a sequence of GitHub issues. Each issue is scoped to be independently implementable and reviewable. Issues within a phase are ordered by dependency -- later issues may depend on earlier ones.
 
@@ -745,3 +745,189 @@ Each phase has a definition-of-done gate before the next phase begins:
 - [x] Security policy tests pass (standard + strict modes)
 - [x] Evaluation harness produces accurate reports on a recorded session
 - [x] Cross-platform tests pass on Linux, macOS, and Windows CI runners
+
+---
+
+## Phase 4: v2.0 Agent-Environment Interface (Planned)
+
+Phase 4 transitions Tooli from "agent-friendly CLI framework" to a full Agent-Environment Interface (AEI): one tool definition serves humans, MCP clients, and autonomous agents with token-safe defaults and explicit governance controls.
+
+### Issue #39: Zero-config MCP bridge and app loader [PLANNED]
+
+**Labels:** `phase-4`, `mcp`, `v2.0`
+
+Expose existing Tooli apps as MCP servers without requiring app-specific MCP wiring.
+
+**Acceptance criteria:**
+- [ ] New launcher command: `tooli serve <app.py> --transport stdio|http|sse`
+- [ ] Module loader supports `module.py:app` and package module paths
+- [ ] Loaded commands keep parity with direct CLI behavior and schema output
+- [ ] Compatibility tests with at least one MCP client and FastMCP-style tool registries
+- [ ] Clear startup diagnostics for import failures and missing app objects
+
+**Depends on:** #16, #17, #18
+
+---
+
+### Issue #40: First-class MCP resources and prompts [PLANNED]
+
+**Labels:** `phase-4`, `mcp`, `api`, `v2.0`
+
+Add AEI-native surfaces beyond executable tools.
+
+**Acceptance criteria:**
+- [ ] `@app.resource()` decorator exports read-only resources with URI schemes (`file://`, `config://`, custom)
+- [ ] `@app.prompt()` decorator exports reusable prompt templates
+- [ ] `mcp export` includes tools, resources, and prompts in one contract bundle
+- [ ] Resource and prompt metadata appears in SKILL.md and llms docs
+- [ ] Tests: resource read, prompt render, and MCP export shape validation
+
+**Depends on:** #39
+
+---
+
+### Issue #41: Token-aware context protectors [PLANNED]
+
+**Labels:** `phase-4`, `output`, `v2.0`
+
+Prevent context-window flooding during agent-driven execution.
+
+**Acceptance criteria:**
+- [ ] `@app.command(max_tokens=...)` metadata available to command runtime
+- [ ] Agent-mode detection suppresses human-only UX noise (spinners, ANSI-heavy output)
+- [ ] When output exceeds policy, framework returns structured truncation summary + artifact path
+- [ ] Built-in paging helper tool (for MCP and CLI) to request additional output windows
+- [ ] Tests: large output path, truncation metadata, deterministic summary format
+
+**Depends on:** #5, #21, #23
+
+---
+
+### Issue #42: Native human-in-the-loop guardrails [PLANNED]
+
+**Labels:** `phase-4`, `security`, `v2.0`
+
+Push approval logic into the framework instead of relying on external agent prompts.
+
+**Acceptance criteria:**
+- [ ] New command metadata: `requires_approval` and `danger_level`
+- [ ] In agent mode, high-risk commands pause for explicit human confirmation
+- [ ] Policy-aware handling of non-interactive sessions (deny or queue with actionable error)
+- [ ] Audit events include approver source, policy decision, and command fingerprint
+- [ ] Tests: approval granted/denied paths and strict-policy behavior
+
+**Depends on:** #34, #36
+
+---
+
+### Issue #43: Semantic self-correction error contracts [PLANNED]
+
+**Labels:** `phase-4`, `errors`, `v2.0`
+
+Upgrade validation/runtime failures into machine-correctable guidance.
+
+**Acceptance criteria:**
+- [ ] Normalize parser/validation exceptions into structured error taxonomy with fix hints
+- [ ] Add machine-stable fields for correction loops (`expected`, `received`, `retry_hint`)
+- [ ] Ensure traceback output is suppressed in agent modes by default
+- [ ] Add a compatibility policy for stable error codes across v2 minors
+- [ ] Tests: invalid args produce correction-ready payloads without noisy traces
+
+**Depends on:** #7, #8
+
+---
+
+### Issue #44: Deferred tool discovery and search-first loading [PLANNED]
+
+**Labels:** `phase-4`, `core`, `mcp`, `v2.0`
+
+Avoid prompt bloat for large tool inventories by defaulting to lazy schema loading.
+
+**Acceptance criteria:**
+- [ ] Command namespaces support lazy discovery and schema-on-demand resolution
+- [ ] Built-in `search-tools` capability ranks commands by semantic relevance
+- [ ] MCP export supports deferred loading hints for compatible clients
+- [ ] Agent docs include discovery guidance instead of full schema dumps
+- [ ] Benchmarks verify lower initial context footprint for large apps
+
+**Depends on:** #25, #29
+
+---
+
+### Issue #45: Programmatic orchestration runtime [PLANNED]
+
+**Labels:** `phase-4`, `architecture`, `v2.0`
+
+Enable local script-based orchestration to batch many tool calls and return compact summaries.
+
+**Acceptance criteria:**
+- [ ] Add sandboxed execution helper for scripted multi-tool workflows
+- [ ] Tool invocation APIs support structured call graphs and deterministic replay
+- [ ] Final-result summarization contract minimizes token return for long workflows
+- [ ] Security policy enforces tool allowlist/permission-mode boundaries
+- [ ] Tests: orchestration script runs multiple tools and returns compressed final artifact
+
+**Depends on:** #29, #32, #34
+
+---
+
+### Issue #46: Dry-run and state snapshot contracts [PLANNED]
+
+**Labels:** `phase-4`, `core`, `v2.0`
+
+Standardize reversible planning across mutating commands.
+
+**Acceptance criteria:**
+- [ ] Promote `supports_dry_run` metadata to stable command contract
+- [ ] Provide structured "planned side effects" schema and snapshot IDs
+- [ ] Optional pre/post state digest hooks for diff-based verification
+- [ ] MCP and HTTP surfaces preserve dry-run envelope parity
+- [ ] Tests: mutating command exposes identical plan contract across interfaces
+
+**Depends on:** #31
+
+---
+
+### Issue #47: v2 migration layer and deprecation policy [PLANNED]
+
+**Labels:** `phase-4`, `core`, `docs`, `v2.0`
+
+Ship v2 with explicit upgrade paths instead of implicit breakage.
+
+**Acceptance criteria:**
+- [ ] Document breaking changes and provide migration guide with code examples
+- [ ] Compatibility mode for legacy output/error semantics where feasible
+- [ ] Deprecation warnings include deadline and replacement hints
+- [ ] End-to-end migration test app validates v1-to-v2 transitions
+- [ ] Release checklist includes contract snapshots before/after migration
+
+**Depends on:** #39, #43, #44, #46, #48
+
+---
+
+### Issue #48: Python eval pipe mode for agent code streams [PLANNED]
+
+**Labels:** `phase-4`, `core`, `security`, `v2.0`
+
+Allow agents to pipe Python code into CLI tools for local orchestration and computed tool inputs.
+
+**Acceptance criteria:**
+- [ ] Opt-in execution mode for code from stdin (for example `--python-eval` / `@app.command(allow_python_eval=True)`)
+- [ ] Mode is disabled by default and requires explicit enablement per command or app
+- [ ] Restricted runtime policy: blocked imports by default, limited builtins, and explicit allowlist hooks
+- [ ] Execution limits: timeout and maximum output size integrated with context-protector controls
+- [ ] Structured result contract for eval execution (`ok`, `result`, `error`, `meta`) with deterministic error codes
+- [ ] Audit logging and security-policy integration (approval requirements for high-risk eval commands)
+- [ ] Tests for piping expressions/statements, policy denials, and sandbox-escape attempts
+
+**Depends on:** #34, #41, #42, #45
+
+---
+
+### Phase 4 Gate
+- [ ] All Phase 4 issues are merged
+- [ ] MCP parity tests pass for tools/resources/prompts across stdio and HTTP transports
+- [ ] Context-protection tests prove large outputs remain within configured token budgets
+- [ ] HITL approval/audit tests pass in both interactive and non-interactive runners
+- [ ] Python eval mode passes restricted-runtime and policy-enforcement security tests
+- [ ] Migration suite passes for a representative v1 app upgraded to v2 behavior
