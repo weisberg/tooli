@@ -6,6 +6,7 @@ import ast
 import inspect
 import json
 import os
+import re
 import signal
 import sys
 import tempfile
@@ -28,6 +29,7 @@ from tooli.errors import (
     AuthError,
     InputError,
     InternalError,
+    Suggestion,
     ToolError,
     ToolRuntimeError,
 )
@@ -220,12 +222,21 @@ def _annotation_labels(callback: Callable[..., Any] | None) -> list[str]:
     return labels
 
 
-def _is_agent_mode(ctx: click.Context, mode: OutputMode) -> bool:
+def _is_agent_mode(
+    ctx: click.Context | None = None,
+    mode: OutputMode | None = None,
+) -> bool:
+    """Return True when structured JSON output should be preferred.
+
+    This is used by both parser-level flows and command-level runtime flows.
+    """
     if os.getenv("TOOLI_AGENT_MODE", "").lower() in {"1", "true", "yes", "on"}:
         return True
-    if not click.get_text_stream("stdout").isatty():
+    if os.getenv("TOOLI_OUTPUT", "").lower() in {OutputMode.JSON.value, OutputMode.JSONL.value}:
         return True
-    return mode in {OutputMode.JSON, OutputMode.JSONL}
+    if ctx is not None and mode is not None:
+        return mode in {OutputMode.JSON, OutputMode.JSONL}
+    return not click.get_text_stream("stdout").isatty()
 
 
 def _estimate_tokens(text: str) -> int:
@@ -461,6 +472,75 @@ def _parse_null_delimited_input() -> list[str]:
     return [entry for entry in raw.split("\0") if entry]
 
 
+def _extract_validation_details(message: str) -> dict[str, Any]:
+    """Return machine-oriented fields for CLI parser failures."""
+    normalized = (message or "").strip()
+    lowered = normalized.lower()
+    details: dict[str, Any] = {
+        "expected": [],
+        "received": [],
+        "retry_hint": "Check argument names and required values, then rerun.",
+    }
+
+    def _normalize_token(value: str) -> str:
+        return value.strip(" '\"").lstrip("-")
+
+    missing_argument = re.search(r"Missing argument '?([A-Za-z0-9_\\-]+)'?", normalized)
+    if missing_argument:
+        details["expected"] = [_normalize_token(missing_argument.group(1)).lower()]
+        details["retry_hint"] = f"Provide required argument(s): {missing_argument.group(1)}."
+        return details
+
+    missing_option = re.search(r"Missing option '?(-{1,2}[A-Za-z0-9_\\-]+)'?", normalized)
+    if missing_option:
+        details["expected"] = [_normalize_token(missing_option.group(1))]
+        details["retry_hint"] = f"Provide the {missing_option.group(1)} option."
+        return details
+
+    option_value = re.search(r"Missing parameter for option (?P<option>.+)", normalized)
+    if option_value:
+        details["expected"] = [option_value.group("option")]
+        details["retry_hint"] = f"Provide a value for {option_value.group('option')}."
+        return details
+
+    unknown_option = re.search(r"No such option: ([^\\n]+)", normalized)
+    if unknown_option:
+        details["expected"] = "valid option"
+        details["retry_hint"] = f"Remove or replace unsupported option {unknown_option.group(1)}."
+        return details
+
+    unexpected = re.search(r"Unexpected extra argument(.*)", normalized)
+    if unexpected:
+        extra = unexpected.group(1).strip(" :") or ""
+        if extra:
+            details["received"] = [extra]
+        details["retry_hint"] = "Remove extra positional arguments and rerun."
+        return details
+
+    if lowered.startswith("invalid value for"):
+        details["retry_hint"] = "Correct the value format and rerun."
+
+    if lowered.startswith("got unexpected extra argument"):
+        details["retry_hint"] = "Remove unsupported trailing arguments."
+
+    return details
+
+
+def _build_validation_input_error(message: str) -> InputError:
+    """Build deterministic InputError for parser/validation failures."""
+    details = _extract_validation_details(message)
+    return InputError(
+        message=message,
+        code="E1001",
+        suggestion=Suggestion(
+            action="fix_argument_or_option",
+            fix="Check required arguments and option names against --help output.",
+            example="my-tool command --help",
+        ),
+        details=details,
+    )
+
+
 def _evaluate_python_payload(code: str, *, command_name: str) -> dict[str, Any]:
     stripped = code.strip()
     if not stripped:
@@ -627,6 +707,49 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
+def _build_parser_error_payload(
+    *,
+    command_name: str,
+    app_version: str,
+    start_time: float,
+    error: InputError,
+) -> str:
+    meta = EnvelopeMeta(
+        tool=command_name,
+        version=app_version,
+        duration_ms=max(1, int((time.perf_counter() - start_time) * 1000)),
+        warnings=[],
+    )
+    envelope = Envelope(ok=False, result=None, meta=meta)
+    payload = envelope.model_dump()
+    payload["error"] = error.to_dict()
+    return _json_dumps(payload)
+
+
+def _emit_parser_error(
+    message: str,
+    *,
+    command_name: str,
+    app_version: str,
+    start_time: float,
+    code: str,
+) -> None:
+    if code == "E1001":
+        error = _build_validation_input_error(message)
+    else:
+        error = InputError(
+            message=message,
+            code=code,
+            details=_extract_validation_details(message),
+        )
+    click.echo(_build_parser_error_payload(
+        command_name=command_name,
+        app_version=app_version,
+        start_time=start_time,
+        error=error,
+    ))
+
+
 def _normalize_system_exit(code: object | None) -> int:
     if code is None:
         return int(ExitCode.SUCCESS)
@@ -677,6 +800,60 @@ def _build_envelope_meta(
 
 class TooliCommand(TyperCommand):
     """TyperCommand subclass with Tooli global flags and output routing."""
+
+    def main(
+        self,
+        args: list[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> Any:
+        start_time = time.perf_counter()
+        try:
+            return super().main(
+                args=args,
+                prog_name=prog_name,
+                complete_var=complete_var,
+                standalone_mode=False,
+                windows_expand_args=windows_expand_args,
+                **extra,
+            )
+        except click.UsageError as exc:
+            if not standalone_mode:
+                raise
+
+            if not _is_agent_mode():
+                exc.show()
+                raise SystemExit(_normalize_system_exit(exc.exit_code)) from exc
+
+            cb_meta = get_command_meta(self.callback)
+            _emit_parser_error(
+                exc.format_message(),
+                command_name=self.name or "tooli",
+                app_version=cb_meta.app_version or "0.0.0",
+                start_time=start_time,
+                code="E1001",
+            )
+            raise SystemExit(_normalize_system_exit(exc.exit_code)) from exc
+        except click.ClickException as exc:
+            if not standalone_mode:
+                raise
+
+            if not _is_agent_mode():
+                exc.show()
+                raise SystemExit(_normalize_system_exit(exc.exit_code)) from exc
+
+            cb_meta = get_command_meta(self.callback)
+            _emit_parser_error(
+                exc.format_message(),
+                command_name=self.name or "tooli",
+                app_version=cb_meta.app_version or "0.0.0",
+                start_time=start_time,
+                code="E1002",
+            )
+            raise SystemExit(_normalize_system_exit(exc.exit_code)) from exc
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         params = list(kwargs.get("params") or [])
@@ -1290,9 +1467,15 @@ class TooliCommand(TyperCommand):
                     raise
                 except click.UsageError as e:
                     # Map Click usage errors to InputError (exit code 2).
-                    raise InputError(message=str(e), code="E1001") from e
+                    raise _build_validation_input_error(str(e)) from e
                 except click.ClickException as e:
-                    raise InputError(message=e.format_message(), code="E1002") from e
+                    message = e.format_message()
+                    details = _extract_validation_details(message)
+                    raise InputError(
+                        message=message,
+                        code="E1002",
+                        details=details,
+                    ) from e
                 except Exception as e:
                     details = {}
                     if ctx.obj.verbose > 0:

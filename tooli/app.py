@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
+from collections.abc import Callable  # noqa: TC003
 from pathlib import Path  # noqa: TC003
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 import click  # noqa: TC002
 import typer
+from typer.main import TyperGroup
 
 from tooli.auth import AuthContext
-from tooli.command import TooliCommand
-from tooli.command_meta import CommandMeta
+from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
+from tooli.command_meta import CommandMeta, PromptMeta, ResourceMeta, get_command_meta
 from tooli.eval.recorder import build_invocation_recorder
 from tooli.input import SecretInput, is_secret_input
 from tooli.providers.local import LocalProvider
@@ -20,6 +23,66 @@ from tooli.security.policy import resolve_security_policy
 from tooli.telemetry_pipeline import build_telemetry_pipeline
 from tooli.transforms import ToolDef, Transform  # noqa: TC001
 from tooli.versioning import compare_versions
+
+
+class TooliGroup(TyperGroup):
+    """Command group with machine-mode parser error envelopes."""
+
+    def _estimate_app_version(self) -> str:
+        for command in self.commands.values():
+            callback = getattr(command, "callback", None)
+            meta = get_command_meta(callback)
+            if meta.app_version:
+                return str(meta.app_version)
+        return "0.0.0"
+
+    def main(
+        self,
+        args: list[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: Any,
+    ) -> Any:
+        start_time = time.perf_counter()
+        try:
+            return super().main(
+                args=args,
+                prog_name=prog_name,
+                complete_var=complete_var,
+                standalone_mode=False,
+                windows_expand_args=windows_expand_args,
+                **extra,
+            )
+        except click.UsageError as exc:
+            if not standalone_mode:
+                raise
+            if not _is_agent_mode():
+                exc.show()
+                raise SystemExit(2) from exc
+            _emit_parser_error(
+                exc.format_message(),
+                command_name=self.name or "tooli",
+                app_version=self._estimate_app_version(),
+                start_time=start_time,
+                code="E1001",
+            )
+            raise SystemExit(2) from exc
+        except click.ClickException as exc:
+            if not standalone_mode:
+                raise
+            if not _is_agent_mode():
+                exc.show()
+                raise SystemExit(2) from exc
+            _emit_parser_error(
+                exc.format_message(),
+                command_name=self.name or "tooli",
+                app_version=self._estimate_app_version(),
+                start_time=start_time,
+                code="E1002",
+            )
+            raise SystemExit(2) from exc
 
 
 class Tooli(typer.Typer):
@@ -47,6 +110,7 @@ class Tooli(typer.Typer):
         record: bool | str | None = None,
         **kwargs: Any,
     ) -> None:
+        kwargs.setdefault("cls", TooliGroup)
         super().__init__(*args, **kwargs)
 
         # Tooli-specific configuration
@@ -73,6 +137,8 @@ class Tooli(typer.Typer):
         self._versioned_commands_latest: dict[str, str] = {}
         self._providers: list[Any] = [LocalProvider(self)]
         self._transforms: list[Transform] = []
+        self._resources: list[tuple[Callable[..., Any], ResourceMeta]] = []
+        self._prompts: list[tuple[Callable[..., Any], PromptMeta]] = []
 
         # Register built-in commands
         self._register_builtins()
@@ -100,10 +166,62 @@ class Tooli(typer.Typer):
 
         return tools
 
+    def get_resources(self) -> list[tuple[Callable[..., Any], ResourceMeta]]:
+        """Return registered MCP resource callbacks."""
+        return list(self._resources)
+
+    def get_prompts(self) -> list[tuple[Callable[..., Any], PromptMeta]]:
+        """Return registered MCP prompt callbacks."""
+        return list(self._prompts)
+
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
         """Override click help output to use transformed command names."""
         del ctx
         return sorted(tool.name for tool in self.get_tools() if not tool.hidden)
+
+    def resource(
+        self,
+        uri: str,
+        *,
+        description: str | None = None,
+        mime_type: str | None = None,
+        name: str | None = None,
+        hidden: bool = False,
+        tags: list[str] | None = None,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Register an MCP resource callback."""
+
+        def _wrap(callback: Callable[..., Any]) -> Callable[..., Any]:
+            resource_meta = ResourceMeta(
+                uri=uri,
+                description=description,
+                mime_type=mime_type,
+                name=name or callback.__name__,
+                hidden=hidden,
+                tags=tags or [],
+            )
+            callback.__tooli_resource_meta__ = resource_meta  # type: ignore[attr-defined]
+            self._resources.append((callback, resource_meta))
+            return callback
+
+        return _wrap
+
+    def prompt(
+        self,
+        name: str,
+        *,
+        description: str | None = None,
+        hidden: bool = False,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Register an MCP prompt callback."""
+
+        def _wrap(callback: Callable[..., Any]) -> Callable[..., Any]:
+            prompt_meta = PromptMeta(name=name, description=description, hidden=hidden)
+            callback.__tooli_prompt_meta__ = prompt_meta  # type: ignore[attr-defined]
+            self._prompts.append((callback, prompt_meta))
+            return callback
+
+        return _wrap
 
     def _register_builtins(self) -> None:
         @self.command(name="generate-skill", hidden=True)  # type: ignore[untyped-decorator]
@@ -127,6 +245,7 @@ class Tooli(typer.Typer):
         @mcp_app.command(name="export")
         def mcp_export(
             defer_loading: bool = typer.Option(False, help="Expose discovery-focused MCP tools only."),
+            include_resources: bool = typer.Option(False, help="Include resources and prompts in the output."),
         ) -> None:
             """Export MCP tool definitions as JSON."""
             import json
@@ -135,8 +254,8 @@ class Tooli(typer.Typer):
 
             from tooli.mcp.export import export_mcp_tools
 
-            tools = export_mcp_tools(self, defer_loading=defer_loading)
-            click.echo(json.dumps(tools, indent=2))
+            payload = export_mcp_tools(self, defer_loading=defer_loading, include_resources=include_resources)
+            click.echo(json.dumps(payload, indent=2))
 
         @mcp_app.command(name="serve")
         def mcp_serve(
@@ -208,6 +327,56 @@ class Tooli(typer.Typer):
             from tooli.api.server import serve_api
 
             serve_api(self, host=host, port=port)
+
+        # Orchestration utilities
+        orchestrate_app = typer.Typer(name="orchestrate", help="Programmatic orchestration", hidden=True)
+        self.add_typer(orchestrate_app)
+
+        @orchestrate_app.command(name="run", cls=TooliCommand)  # type: ignore[untyped-decorator]
+        def orchestrate_run(
+            plan_path: str | None = typer.Argument(
+                None,
+                help="Path to a JSON plan file. If omitted, reads from stdin.",
+            ),
+            python: bool = typer.Option(False, help="Evaluate stdin/plan input as a Python expression."),
+            continue_on_error: bool = typer.Option(
+                False,
+                "--continue-on-error",
+                help="Continue executing after a failed step.",
+            ),
+            max_steps: int = typer.Option(64, help="Maximum number of steps to execute."),
+        ) -> dict[str, Any]:
+            """Execute multiple Tooli commands from a structured plan."""
+            import sys
+
+            from tooli.errors import InputError
+            from tooli.orchestration import parse_plan_payload, run_tool_plan
+
+            if max_steps <= 0:
+                raise InputError(message="max_steps must be greater than zero.", code="E1005")
+
+            if plan_path in (None, "-"):
+                raw_plan = sys.stdin.read()
+            else:
+                raw_plan = Path(plan_path).read_text(encoding="utf-8")
+
+            if not raw_plan.strip():
+                return {"ok": False, "error": "No orchestration plan provided."}
+
+            try:
+                steps = parse_plan_payload(
+                    raw_plan,
+                    command_name="orchestrate",
+                    allow_python=python,
+                )
+                return run_tool_plan(
+                    self,
+                    steps,
+                    max_steps=max_steps,
+                    continue_on_error=continue_on_error,
+                )
+            except ValueError as exc:
+                raise InputError(message=str(exc), code="E1005") from exc
 
         @self.command(name="tooli_read_page", hidden=True, cls=TooliCommand)  # type: ignore[untyped-decorator]
         def tooli_read_page(path: str = typer.Argument(..., help="Path to an output artifact.")) -> None:

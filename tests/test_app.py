@@ -541,6 +541,33 @@ def test_click_usage_error_maps_to_input_exit_code() -> None:
     assert result.exit_code == 2
 
 
+def test_click_usage_error_has_retry_payload() -> None:
+    """Usage errors should include structured retry details for automation."""
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def need_arg(name: str) -> str:
+        return name
+
+    @app.command()
+    def has_default(name: str, retries: int = 1) -> str:
+        return name
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["need-arg"])
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "E1001"
+    assert "expected" in payload["error"]["details"]
+    assert "retry_hint" in payload["error"]["details"]
+    assert payload["error"]["details"]["expected"] == ["name"]
+
+    missing_option = runner.invoke(app, ["has-default", "--missing"])
+    payload = json.loads(missing_option.output)
+    assert payload["error"]["code"] in {"E1001", "E1002"}
+    assert "retry_hint" in payload["error"]["details"]
+
+
 def test_help_output_includes_behavior_line() -> None:
     """--help output should include a Behavior summary when annotations are present."""
     app = Tooli(name="test-app")

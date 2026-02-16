@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import inspect
 import logging
 import sys
@@ -154,6 +155,58 @@ def _build_run_tool(app: Tooli) -> Any:
     return run_tool
 
 
+def _build_resource_callable(callback: Callable[..., Any]) -> Any:
+    if inspect.iscoroutinefunction(callback):
+        async def _resource() -> Any:
+            return await callback()
+
+        return _resource
+
+    def _resource() -> Any:
+        return callback()
+
+    return _resource
+
+
+def _build_prompt_callable(callback: Callable[..., Any]) -> Any:
+    if inspect.iscoroutinefunction(callback):
+        async def _prompt() -> str:
+            return str(await callback())
+
+        return _prompt
+
+    def _prompt() -> str:
+        return str(callback())
+
+    return _prompt
+
+
+def _register_resource(mcp: Any, callback: Callable[..., Any], *, uri: str, name: str, description: str | None, mime_type: str | None) -> None:
+    resource_adder = getattr(mcp, "resource", None)
+    if not callable(resource_adder):
+        return
+
+    handler = _build_resource_callable(callback)
+    try:
+        resource_adder(uri=uri, name=name, mime_type=mime_type, description=description)(handler)
+        return
+    except TypeError:
+        resource_adder(uri=uri)(handler)
+
+
+def _register_prompt(mcp: Any, callback: Callable[..., Any], *, name: str, description: str | None, hidden: bool) -> None:
+    del hidden
+    prompt_adder = getattr(mcp, "prompt", None)
+    if not callable(prompt_adder):
+        return
+
+    handler = _build_prompt_callable(callback)
+    try:
+        prompt_adder(name=name, description=description)(handler)
+    except TypeError:
+        prompt_adder(name)(handler)
+
+
 def serve_mcp(
     app: Tooli,
     transport: str = "stdio",
@@ -202,6 +255,29 @@ def serve_mcp(
 
             description = tool_def.help or tool_def.callback.__doc__ or ""
             mcp.tool(name=cmd_id, description=description)(_make_wrapper(callback))
+
+    for callback, resource_meta in app.get_resources():
+        if resource_meta.hidden:
+            continue
+        _register_resource(
+            mcp=mcp,
+            callback=callback,
+            uri=resource_meta.uri,
+            name=resource_meta.name or callback.__name__,
+            description=resource_meta.description,
+            mime_type=resource_meta.mime_type,
+        )
+
+    for callback, prompt_meta in app.get_prompts():
+        if prompt_meta.hidden:
+            continue
+        _register_prompt(
+            mcp=mcp,
+            callback=callback,
+            name=prompt_meta.name,
+            description=prompt_meta.description,
+            hidden=prompt_meta.hidden,
+        )
 
     # Strict stdout discipline for stdio transport
     if transport == "stdio":

@@ -19,7 +19,12 @@ class MCPToolDefinition(BaseModel):
     annotations: dict[str, Any] | None = None
 
 
-def export_mcp_tools(app: Tooli, *, defer_loading: bool = False) -> list[dict[str, Any]]:
+def export_mcp_tools(
+    app: Tooli,
+    *,
+    defer_loading: bool = False,
+    include_resources: bool = False,
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Export all registered commands as MCP tool definitions."""
     from tooli.annotations import ToolAnnotation
     from tooli.command_meta import get_command_meta
@@ -47,7 +52,11 @@ def export_mcp_tools(app: Tooli, *, defer_loading: bool = False) -> list[dict[st
             },
         ]
 
-    tools = []
+    # Preserve backwards-compatibility for callers that expect only tool payloads.
+    tools: list[dict[str, Any]] = []
+    resources: list[dict[str, Any]] = []
+    prompts: list[dict[str, Any]] = []
+
     for tool_def in app.get_tools():
         if tool_def.hidden:
             continue
@@ -88,4 +97,40 @@ def export_mcp_tools(app: Tooli, *, defer_loading: bool = False) -> list[dict[st
 
         tools.append(mcp_tool)
 
-    return tools
+    for callback, meta in app.get_resources():
+        if meta.hidden:
+            continue
+
+        resource = {
+            "uri": meta.uri,
+            "name": meta.name or callback.__name__,
+            "description": (meta.description or ""),
+            "mimeType": meta.mime_type,
+            "meta": {
+                "annotations": {"readOnlyHint": True},
+                "tags": list(meta.tags),
+            },
+        }
+        resources.append({k: v for k, v in resource.items() if v not in (None, "", [])})
+
+    for callback, meta in app.get_prompts():
+        if meta.hidden:
+            continue
+
+        prompt = {
+            "name": meta.name,
+            "description": meta.description or "",
+            "meta": {
+                "callback": getattr(callback, "__name__", "prompt"),
+            },
+        }
+        prompts.append(prompt)
+
+    if not include_resources:
+        return tools
+
+    return {
+        "tools": tools,
+        "resources": [entry for entry in resources if entry is not None],
+        "prompts": [entry for entry in prompts if entry is not None],
+    }

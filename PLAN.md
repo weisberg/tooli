@@ -861,18 +861,20 @@ Avoid prompt bloat for large tool inventories by defaulting to lazy schema loadi
 
 ---
 
-### Issue #45: Programmatic orchestration runtime [PLANNED]
+### Issue #45: Programmatic orchestration runtime [DONE]
 
 **Labels:** `phase-4`, `architecture`, `v2.0`
 
 Enable local script-based orchestration to batch many tool calls and return compact summaries.
 
 **Acceptance criteria:**
-- [ ] Add sandboxed execution helper for scripted multi-tool workflows
+- [x] Add sandboxed execution helper for scripted multi-tool workflows
 - [ ] Tool invocation APIs support structured call graphs and deterministic replay
-- [ ] Final-result summarization contract minimizes token return for long workflows
+- [x] Final-result summarization contract minimizes token return for long workflows
 - [ ] Security policy enforces tool allowlist/permission-mode boundaries
-- [ ] Tests: orchestration script runs multiple tools and returns compressed final artifact
+- [x] Tests: orchestration script runs multiple tools and returns compressed final artifact
+
+**Status:** Completed a scoped hidden `orchestrate run` command that accepts JSON/python plans and returns deterministic per-step results.
 
 **Depends on:** #29, #32, #34
 

@@ -58,3 +58,44 @@ def get_command_meta(callback: Callable[..., Any] | None) -> CommandMeta:
     if isinstance(meta, CommandMeta):
         return meta
     return CommandMeta()
+
+
+@dataclass
+class ResourceMeta:
+    """Metadata for MCP resource registrations."""
+
+    uri: str
+    description: str | None = None
+    mime_type: str | None = None
+    name: str | None = None
+    hidden: bool = False
+    tags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PromptMeta:
+    """Metadata for MCP prompt registrations."""
+
+    name: str
+    description: str | None = None
+    hidden: bool = False
+
+
+def get_resource_meta(callback: Callable[..., Any] | None) -> ResourceMeta | None:
+    """Read resource metadata from callback, when present."""
+    if callback is None:
+        return None
+    meta = getattr(callback, "__tooli_resource_meta__", None)
+    if isinstance(meta, ResourceMeta):
+        return meta
+    return None
+
+
+def get_prompt_meta(callback: Callable[..., Any] | None) -> PromptMeta | None:
+    """Read prompt metadata from callback, when present."""
+    if callback is None:
+        return None
+    meta = getattr(callback, "__tooli_prompt_meta__", None)
+    if isinstance(meta, PromptMeta):
+        return meta
+    return None
