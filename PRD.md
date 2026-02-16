@@ -1,8 +1,8 @@
 # PRD: Tooli — The Agent-Native CLI Framework
 
-**Version:** 1.0
-**Date:** 2026-02-14
-**Status:** Implemented (v1.0.0)
+**Version:** 1.1
+**Date:** 2026-02-16
+**Status:** Implemented (v1.1.x), with v2 roadmap planned.
 
 ---
 
@@ -689,7 +689,56 @@ Minimal footprint for fast startup (agents may call tools thousands of times):
 
 ---
 
-## 19. References
+## 19. v2.0 Roadmap Extension: Agent-Environment Interface (AEI)
+
+### 19.1 Why v2.0
+
+v1 established the core contract: typed Python functions can serve CLI, schema, MCP, and HTTP surfaces with stable machine output.
+v2.0 extends that baseline into an **Agent-Environment Interface** where the framework actively manages context safety, discovery scale, approval boundaries, and multi-tool orchestration semantics.
+
+### 19.2 Product Direction
+
+v2.0 prioritizes:
+
+1. **MCP-native interoperability** — zero-config server bridge for existing Tooli apps, plus first-class tools/resources/prompts
+2. **Context protection by default** — token-aware output controls and paging artifacts for large result sets
+3. **Governance in-framework** — explicit human approval and danger-level policies for high-risk operations
+4. **Self-correcting execution loops** — structured semantic errors optimized for LLM retry behavior
+5. **Scale-safe discovery** — deferred tool loading and search-first discovery for large command inventories
+6. **Plan-before-mutate semantics** — standardized dry-run/state snapshot contracts across CLI, MCP, and HTTP
+7. **Agent code-pipe execution** — opt-in Python eval mode for piped code with restricted runtime policies
+
+### 19.3 Proposed v2.0 Capability Set
+
+1. **Zero-config MCP bridge:** `tooli serve <app.py> --transport ...` loads and serves a Tooli app without custom MCP glue.
+2. **Resource and prompt APIs:** `@app.resource()` and `@app.prompt()` extend beyond executable commands.
+3. **Token-aware command controls:** `@app.command(max_tokens=...)` with structured truncation summaries and follow-up paging.
+4. **Native HITL controls:** `requires_approval` and `danger_level` metadata integrated with policy mode and audit logs.
+5. **Semantic error payloads:** parser/validation/runtime failures normalize to correction-oriented machine contracts.
+6. **Deferred discovery:** namespace-aware `search-tools` + schema-on-demand for low initial context usage.
+7. **Programmatic orchestration:** local sandbox workflows that compose multiple tool calls and emit compact final artifacts.
+8. **Dry-run snapshot contract:** stable side-effect plan schema and optional pre/post state digests.
+9. **Python eval pipe mode:** opt-in execution of Python code piped via stdin for agent workflows, with restricted builtins/import policy, execution limits, and structured/audited outputs.
+
+### 19.4 Release Staging Toward v2.0
+
+1. **v1.1 Stabilization:** hygiene, release consistency, CI quality gates for contract/perf/security baselines.
+2. **v1.2 MCP Expansion:** zero-config serve path + tools/resources/prompts parity tests.
+3. **v1.3 Context and Safety:** token protector runtime + HITL approval and auditing.
+4. **v1.4 Discovery and Orchestration:** deferred discovery/search-first loading + scripted multi-tool runtime + eval-pipe preview behind explicit opt-in.
+5. **v2.0 RC/GA:** finalize breaking contract changes (including eval mode contracts), ship migration layer, and enforce upgrade validation suite.
+
+### 19.5 v2.0 Definition of Done
+
+1. **Contract parity:** CLI/MCP/HTTP behavior matches for tool, resource, prompt, dry-run, and error contracts.
+2. **Context efficiency:** large-output scenarios stay within configured token budgets with deterministic truncation metadata.
+3. **Governance:** approval and policy tests pass across interactive and non-interactive execution environments.
+4. **Migration readiness:** v1 reference apps upgrade via documented migration path with compatibility test coverage.
+5. **Eval safety:** Python eval mode is disabled by default and passes restricted-runtime and sandbox-escape security tests.
+
+---
+
+## 20. References
 
 - [Typer](https://typer.tiangolo.com/) — CLI framework foundation
 - [FastMCP](https://gofastmcp.com/) — MCP server ergonomics and schema patterns

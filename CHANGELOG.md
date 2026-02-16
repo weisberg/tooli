@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-16
+
+### Added
+- Added v1.1 stabilization workflow checks and release documentation for ongoing hardening.
+- Added roadmap and issue-planning expansion for v2.0 Agent-Environment Interface capabilities.
+- Added `scripts/check_v11_hardening.py` and CI enforcement for pre-release version consistency.
+
+### Changed
+- Set PyPI long description to `pypi/pypi_project.md` with a Tooli-focused project page.
+
 ## [1.0.2] - 2026-02-15
 
 ### Changed
@@ -45,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
-[1.0.1]: https://github.com/weisberg/tooli/releases/tag/v1.0.1
+[1.1.0]: https://github.com/weisberg/tooli/releases/tag/v1.1.0
 [1.0.2]: https://github.com/weisberg/tooli/releases/tag/v1.0.2
+[1.0.1]: https://github.com/weisberg/tooli/releases/tag/v1.0.1
 [1.0.0]: https://github.com/weisberg/tooli/releases/tag/v1.0.0
