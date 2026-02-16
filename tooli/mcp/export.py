@@ -97,29 +97,29 @@ def export_mcp_tools(
 
         tools.append(mcp_tool)
 
-    for callback, meta in app.get_resources():
-        if meta.hidden:
+    for callback, meta in app.get_resources():  # type: ignore[assignment]
+        if meta.hidden:  # type: ignore[union-attr]
             continue
 
         resource = {
-            "uri": meta.uri,
-            "name": meta.name or callback.__name__,
-            "description": (meta.description or ""),
-            "mimeType": meta.mime_type,
+            "uri": meta.uri,  # type: ignore[attr-defined]
+            "name": meta.name or callback.__name__,  # type: ignore[attr-defined]
+            "description": (meta.description or ""),  # type: ignore[attr-defined]
+            "mimeType": meta.mime_type,  # type: ignore[attr-defined]
             "meta": {
                 "annotations": {"readOnlyHint": True},
-                "tags": list(meta.tags),
+                "tags": list(meta.tags),  # type: ignore[attr-defined]
             },
         }
         resources.append({k: v for k, v in resource.items() if v not in (None, "", [])})
 
-    for callback, meta in app.get_prompts():
-        if meta.hidden:
+    for callback, meta in app.get_prompts():  # type: ignore[assignment]
+        if meta.hidden:  # type: ignore[union-attr]
             continue
 
         prompt = {
-            "name": meta.name,
-            "description": meta.description or "",
+            "name": meta.name,  # type: ignore[attr-defined]
+            "description": meta.description or "",  # type: ignore[attr-defined]
             "meta": {
                 "callback": getattr(callback, "__name__", "prompt"),
             },

@@ -11,7 +11,7 @@ from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 import click  # noqa: TC002
 import typer
-from typer.main import TyperGroup
+from typer.main import TyperGroup  # type: ignore[attr-defined]
 
 from tooli.auth import AuthContext
 from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
@@ -36,7 +36,7 @@ class TooliGroup(TyperGroup):
                 return str(meta.app_version)
         return "0.0.0"
 
-    def main(
+    def main(  # type: ignore[override]
         self,
         args: list[str] | None = None,
         prog_name: str | None = None,
@@ -358,7 +358,7 @@ class Tooli(typer.Typer):
             if plan_path in (None, "-"):
                 raw_plan = sys.stdin.read()
             else:
-                raw_plan = Path(plan_path).read_text(encoding="utf-8")
+                raw_plan = Path(str(plan_path)).read_text(encoding="utf-8")
 
             if not raw_plan.strip():
                 return {"ok": False, "error": "No orchestration plan provided."}
