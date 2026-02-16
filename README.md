@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v1.2)
+## Current State (v2.0)
 
-Tooli v1.2 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 154 tests passing across Python 3.10, 3.11, and 3.12.
+Tooli v2.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 159 tests passing across Python 3.10, 3.11, and 3.12.
 
 ### What ships today
 
@@ -39,6 +39,7 @@ Tooli v1.2 is production-ready and published on [PyPI](https://pypi.org/project/
 | **Schemas** | JSON Schema from type hints, compatible with MCP `inputSchema` and OpenAI function-calling. `$ref` dereferencing for broad client compatibility |
 | **MCP** | Serve any Tooli app as an MCP tool server over stdio, HTTP, or SSE -- zero extra code |
 | **Input** | `StdinOr[T]` unifies files, URLs, and piped stdin. `SecretInput[T]` with automatic redaction |
+| **Orchestration** | Hidden `orchestrate run` command for deterministic multi-tool plan execution (`JSON` / `python` payloads) |
 | **Safety** | Behavioral annotations (`ReadOnly`, `Destructive`, `Idempotent`, `OpenWorld`), `@dry_run_support`, security policies (OFF/STANDARD/STRICT), auth scopes |
 | **Docs** | Auto-generated SKILL.md, llms.txt, Unix man pages -- always in sync with code |
 | **Pagination** | Cursor-based with `--limit`, `--cursor`, `--fields`, `--filter` |
@@ -73,7 +74,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="1.2.0",
+    version="2.0.0",
 )
 
 @app.command(
@@ -120,7 +121,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "1.2.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "2.0.0", "duration_ms": 34}
 }
 ```
 
@@ -399,7 +400,7 @@ v1.0 errors include static suggestions. v2.0 will make error recovery dynamic an
 
 ### Timeline
 
-The v2.0 roadmap will be developed incrementally as minor releases (v1.2, v1.3, ...) with backward-compatible additions. Breaking changes will be accumulated and shipped together as v2.0 when the async runtime and composition primitives are stable.
+The v2.0 roadmap is being delivered incrementally across minor releases (v2.1, v2.2, ...) with backward-compatible additions. Breaking changes will be staged intentionally and released as explicit milestones.
 
 ---
 

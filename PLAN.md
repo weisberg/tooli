@@ -1,6 +1,6 @@
 # Tooli Implementation Plan
 
-> **Status: Complete** -- All 38 issues across 3 phases have been implemented and merged. Tooli v1.2.x has been released.
+> **Status: Complete** -- All 38 issues across 3 phases have been implemented and merged. Tooli v2.0.0 has been released.
 
 This document defines the implementation roadmap for Tooli as a sequence of GitHub issues. Each issue is scoped to be independently implementable and reviewable. Issues within a phase are ordered by dependency -- later issues may depend on earlier ones.
 
@@ -11,7 +11,8 @@ See [PRD.md](PRD.md) for full product requirements.
 - [x] 1.1.x: baseline platform hardening and PRD/roadmap alignment.
 - [x] 1.2.0: zero-config MCP bridge (`tooli` launcher + deferred discovery) and core agent-safe controls.
 - [ ] 1.3.0: richer token and execution observability contracts for automation runtimes.
-- [ ] 1.4.0: richer orchestration/approval composition primitives and Python execution pipeline hardening.
+- [ ] 1.4.0: richer orchestration/approval composition primitives and Python execution pipeline hardening (core runtime path partially in place via `orchestrate run`).
+- [x] 2.0.0: v2.0 release line ships MCP bridge defaults and v2.0 documentation/release framing.
 
 ---
 
@@ -874,7 +875,7 @@ Enable local script-based orchestration to batch many tool calls and return comp
 - [ ] Security policy enforces tool allowlist/permission-mode boundaries
 - [x] Tests: orchestration script runs multiple tools and returns compressed final artifact
 
-**Status:** Completed a scoped hidden `orchestrate run` command that accepts JSON/python plans and returns deterministic per-step results.
+**Status:** Completed a scoped hidden `orchestrate run` command that accepts JSON/python plans and returns deterministic per-step results. Security-hardening for broader orchestration boundaries remains part of v1.4 planning.
 
 **Depends on:** #29, #32, #34
 

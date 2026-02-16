@@ -2,11 +2,11 @@
 
 ## Quick Reference
 
-- **Version**: 1.0.0
+- **Version**: 2.0.0
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory
-- **Tests**: `tests/` directory (147 tests)
+- **Tests**: `tests/` directory (159 tests)
 - **Examples**: `examples/` directory (18 complete apps)
 
 ## Commands

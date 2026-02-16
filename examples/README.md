@@ -104,3 +104,28 @@ python -m examples.proj.app init my-project --template python --dry-run --json
 ```bash
 python -m examples.docq.app mcp serve --transport stdio
 ```
+
+### 6. Orchestrate multiple steps (advanced)
+
+```bash
+python - <<'PY'
+import json
+import subprocess
+
+payload = [
+  {"command": "stats", "arguments": {"path": "README.md"}},
+  {"command": "stats", "arguments": {"path": "CLAUDE.md"}}
+]
+
+subprocess.run([
+    "python",
+    "-m",
+    "examples.docq.app",
+    "orchestrate",
+    "run",
+    "--json",
+], input=json.dumps(payload), text=True, check=True)
+PY
+```
+
+`orchestrate run` is an internal helper for plan execution and returns compact step-level summaries.

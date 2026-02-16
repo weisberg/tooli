@@ -43,7 +43,7 @@ from typing import Annotated
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Idempotent, ReadOnly
 
-app = Tooli(name="file-tools", description="File utilities", version="1.2.0")
+app = Tooli(name="file-tools", description="File utilities", version="2.0.0")
 
 
 @app.command(annotations=ReadOnly | Idempotent, paginated=True, list_processing=True)
@@ -81,7 +81,7 @@ JSON envelope shape:
   "result": {"...": "..."},
   "meta": {
     "tool": "file-tools.find-files",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "duration_ms": 12,
     "annotations": {"readOnlyHint": true, "idempotentHint": true}
   }
@@ -118,6 +118,8 @@ python file_tools.py generate-skill > SKILL.md
 python file_tools.py docs llms
 python file_tools.py docs man
 ```
+
+For local automation, hidden built-ins also include `orchestrate run` for JSON/Python plan execution across multiple Tooli commands.
 
 Run as an MCP server (one tool per command):
 

@@ -1,13 +1,14 @@
 # PRD: Tooli — The Agent-Native CLI Framework
 
-**Version:** 1.1
+**Version:** 2.0
 **Date:** 2026-02-16
-**Status:** Implemented (v1.2.x), with v2 roadmap planned.
+**Status:** v2.0 release aligned; v2.x hardening and migration details continue in phased milestones.
 
 ## 1.x Milestone Progress
 
-- **v1.2.0**: MCP bridge and deferred discovery (`tooli` launcher, `search_tools`, `run_tool`, `defer_loading`), token budgets (`max_tokens`), and optional python payload input mode (`allow_python_eval` + `--python-eval`).
-- **v1.3.0**: planned for workflow-level orchestration features and richer deterministic error contracts.
+- **v2.0.0**: MCP bridge and deferred discovery (`tooli` launcher, `search_tools`, `run_tool`, `defer_loading`), token budgets (`max_tokens`), and optional python payload input mode (`allow_python_eval` + `--python-eval`).
+- **v1.2.1**: Added scoped script execution via `orchestrate run` (JSON/Python payload plans and deterministic compact summaries).
+- **v1.3.0**: planned for context/runtime safety upgrades and richer deterministic error contracts.
 - **v1.4.0**: planned for pluginized execution contexts, resource/prompt surfaces, and formalized orchestration contracts.
 
 ---
@@ -183,7 +184,7 @@ from enum import Enum
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities for development workflows",
-    version="1.2.0",
+    version="2.0.0",
     default_output="auto",         # auto|json|text|jsonl
     mcp_transport="stdio",         # stdio|http|sse
     skill_auto_generate=True,      # Generate SKILL.md on install
