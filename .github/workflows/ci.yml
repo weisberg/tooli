@@ -28,7 +28,7 @@ jobs:
       run: ruff check .
     - name: Type check with Mypy
       run: mypy tooli
-    - name: v1.1 Hardening checks
+    - name: 1.x Hardening checks
       run: python scripts/check_v11_hardening.py
     - name: Run tests with Pytest
       run: pytest tests

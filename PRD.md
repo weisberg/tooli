@@ -2,7 +2,13 @@
 
 **Version:** 1.1
 **Date:** 2026-02-16
-**Status:** Implemented (v1.1.x), with v2 roadmap planned.
+**Status:** Implemented (v1.2.x), with v2 roadmap planned.
+
+## 1.x Milestone Progress
+
+- **v1.2.0**: MCP bridge and deferred discovery (`tooli` launcher, `search_tools`, `run_tool`, `defer_loading`), token budgets (`max_tokens`), and optional python payload input mode (`allow_python_eval` + `--python-eval`).
+- **v1.3.0**: planned for workflow-level orchestration features and richer deterministic error contracts.
+- **v1.4.0**: planned for pluginized execution contexts, resource/prompt surfaces, and formalized orchestration contracts.
 
 ---
 

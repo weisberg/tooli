@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import json
 import sys
+import tempfile
 from collections.abc import Callable  # noqa: TC003
+from pathlib import Path
 from typing import Annotated
 
 import pytest
@@ -20,6 +22,67 @@ _XFAIL_PY310 = pytest.mark.xfail(
     reason="Typer list[str] | None handling requires Python 3.11+",
     strict=False,
 )
+
+
+def test_tooli_read_page_reads_artifact() -> None:
+    """Built-in token-protector page reader should return stored artifact contents."""
+    app = Tooli(name="test-app")
+
+    temp_root = tempfile.gettempdir()
+    artifact_dir = Path(temp_root) / "tooli_logs"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact = artifact_dir / "tooli_output_test.txt"
+    artifact.write_text("hello tooli", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["tooli_read_page", str(artifact), "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "hello tooli"
+
+
+def test_tooli_read_page_rejects_outside_path(tmp_path, monkeypatch) -> None:
+    """tooli-read-page should reject paths outside the allowed artifact directory."""
+    app = Tooli(name="test-app")
+
+    outside = tmp_path / "outside.txt"
+    outside.write_text("blocked", encoding="utf-8")
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(app, ["tooli_read_page", str(outside)])
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "E1008"
+
+
+def test_allow_python_eval_payload_injection() -> None:
+    """--python-eval should accept a mapping payload and inject command arguments."""
+    app = Tooli(name="eval-app")
+
+    @app.command(allow_python_eval=True)
+    def add(
+        left: Annotated[int | None, Option(help="First value")] = None,
+        right: Annotated[int | None, Option(help="Second value")] = None,
+    ) -> int:
+        if left is None or right is None:
+            raise RuntimeError("missing args")
+        return left + right
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["add", "--python-eval", "--text"],
+        input='{"left": 2, "right": 3}',
+    )
+    assert result.exit_code == 0
+    assert result.output.strip() == "5"
+
+    result = runner.invoke(app, ["add", "--python-eval"], input="not valid python")
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "E1005"
 
 
 def test_tooli_creates_basic_app() -> None:

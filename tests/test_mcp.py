@@ -9,7 +9,7 @@ import types
 import pytest
 
 from tooli import Tooli
-from tooli.mcp.server import serve_mcp
+from tooli.mcp.server import _build_run_tool, _search_tools, serve_mcp
 from tooli.testing import TooliTestClient
 
 
@@ -56,7 +56,13 @@ def test_serve_mcp_forwards_transport_args(monkeypatch) -> None:
         def __init__(self, name: str) -> None:
             self.name = name
 
-        def tool(self, *, name: str | None = None, description: str = "", **_kwargs: object) -> object:
+        def tool(
+            self,
+            *,
+            name: str | None = None,
+            description: str = "",
+            **_kwargs: object,
+        ) -> object:
             def _register(callback: object) -> object:
                 return callback
 
@@ -65,6 +71,70 @@ def test_serve_mcp_forwards_transport_args(monkeypatch) -> None:
         def run(self, **kwargs: object) -> None:
             run_state["kwargs"] = kwargs
 
-    monkeypatch.setitem(sys.modules, "fastmcp", types.SimpleNamespace(FastMCP=FakeFastMCP))
+    monkeypatch.setitem(
+        sys.modules,
+        "fastmcp",
+        types.SimpleNamespace(FastMCP=FakeFastMCP),
+    )
     serve_mcp(app, transport="http", host="127.0.0.1", port=5000)
-    assert run_state["kwargs"] == {"transport": "http", "host": "127.0.0.1", "port": 5000}
+    assert run_state["kwargs"] == {
+        "transport": "http",
+        "host": "127.0.0.1",
+        "port": 5000,
+    }
+
+
+def test_serve_mcp_deferred_registers_discovery_tools(monkeypatch) -> None:
+    app = Tooli(name="test-mcp")
+
+    @app.command()
+    def ping() -> str:
+        return "pong"
+
+    registrations: list[tuple[str, str, object]] = []
+
+    class FakeFastMCP:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def tool(
+            self,
+            *,
+            name: str,
+            description: str = "",
+            **_kwargs: object,
+        ) -> object:
+            def register(callback: object) -> object:
+                registrations.append((name, description, callback))
+                return callback
+
+            return register
+
+        def run(self, **kwargs: object) -> None:
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "fastmcp",
+        types.SimpleNamespace(FastMCP=FakeFastMCP),
+    )
+    serve_mcp(app, transport="stdio", defer_loading=True)
+
+    tool_names = {name for name, _, _ in registrations}
+    assert "search_tools" in tool_names
+    assert "run_tool" in tool_names
+
+
+def test_run_tool_and_search_tools_deferred_mode_workflow() -> None:
+    app = Tooli(name="test-mcp")
+
+    @app.command()
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    search = _search_tools(app, query="add")
+    assert search
+    assert any(item["name"] == "add" for item in search)
+
+    run_tool = _build_run_tool(app)
+    assert run_tool(name="add", arguments={"a": 2, "b": 3}) == 5

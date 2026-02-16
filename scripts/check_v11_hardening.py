@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v1.1 stabilization checks for repository hygiene and doc consistency."""
+"""1.x stabilization checks for repository hygiene and doc consistency."""
 
 from __future__ import annotations
 
@@ -103,12 +103,12 @@ def main() -> int:
     failures.extend(_check_doc_status_markers())
 
     if failures:
-        print("v1.1 hardening checks failed:\n", file=sys.stderr)
+        print("1.x hardening checks failed:\n", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
 
-    print("v1.1 hardening checks passed.")
+    print("1.x hardening checks passed.")
     return 0
 
 

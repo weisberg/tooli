@@ -42,6 +42,11 @@ class CommandMeta:
     hidden: bool = False
     deprecated: bool = False
     deprecated_message: str | None = None
+    max_tokens: int | None = None
+    supports_dry_run: bool = False
+    requires_approval: bool = False
+    danger_level: str | None = None
+    allow_python_eval: bool = False
     secret_params: list[str] = field(default_factory=list)
 
 

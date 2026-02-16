@@ -11,7 +11,7 @@ from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
 from tooli.input import SecretInput, StdinOr
 from tooli.versioning import VersionFilter, compare_versions
 
-__version__ = "1.0.2"
+__version__ = "1.2.0"
 __all__ = [
     "Annotated",
     "Argument",

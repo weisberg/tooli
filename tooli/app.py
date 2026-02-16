@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path  # noqa: TC003
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
@@ -124,7 +125,9 @@ class Tooli(typer.Typer):
         self.add_typer(mcp_app)
 
         @mcp_app.command(name="export")
-        def mcp_export() -> None:
+        def mcp_export(
+            defer_loading: bool = typer.Option(False, help="Expose discovery-focused MCP tools only."),
+        ) -> None:
             """Export MCP tool definitions as JSON."""
             import json
 
@@ -132,7 +135,7 @@ class Tooli(typer.Typer):
 
             from tooli.mcp.export import export_mcp_tools
 
-            tools = export_mcp_tools(self)
+            tools = export_mcp_tools(self, defer_loading=defer_loading)
             click.echo(json.dumps(tools, indent=2))
 
         @mcp_app.command(name="serve")
@@ -140,11 +143,12 @@ class Tooli(typer.Typer):
             transport: str = typer.Option("stdio", help="MCP transport: stdio|http|sse"),
             host: str = typer.Option("localhost", help="HTTP/SSE host"),
             port: int = typer.Option(8080, help="HTTP/SSE port"),
+            defer_loading: bool = typer.Option(False, help="Expose only discovery tools and run-tool wrapper."),
         ) -> None:
             """Run the application as an MCP server."""
             from tooli.mcp.server import serve_mcp
 
-            serve_mcp(self, transport=transport, host=host, port=port)
+            serve_mcp(self, transport=transport, host=host, port=port, defer_loading=defer_loading)
 
         # Docs group
         docs_app = typer.Typer(name="docs", help="Documentation generation", hidden=True)
@@ -205,6 +209,32 @@ class Tooli(typer.Typer):
 
             serve_api(self, host=host, port=port)
 
+        @self.command(name="tooli_read_page", hidden=True, cls=TooliCommand)  # type: ignore[untyped-decorator]
+        def tooli_read_page(path: str = typer.Argument(..., help="Path to an output artifact.")) -> None:
+            """Read a text artifact written by token-aware truncation."""
+            from tooli.errors import InputError
+
+            artifact_root = Path(tempfile.gettempdir()) / "tooli_logs"
+            artifact_path = Path(path)
+            resolved = artifact_path.expanduser().resolve()
+
+            if not str(resolved).startswith(str(artifact_root.resolve())):
+                raise InputError(
+                    message="tooli_read_page can only read files from the Tooli log directory.",
+                    code="E1008",
+                )
+
+            if not resolved.exists():
+                raise InputError(message="Artifact file not found.", code="E1009")
+
+            if not resolved.is_file():
+                raise InputError(message="Artifact path is not a file.", code="E1010")
+
+            with open(resolved, encoding="utf-8") as handle:
+                import click
+
+                click.echo(handle.read())
+
         # Eval utilities
         eval_app = typer.Typer(name="eval", help="Evaluation tooling")
         self.add_typer(eval_app)
@@ -243,6 +273,11 @@ class Tooli(typer.Typer):
         cost_hint: str | None = None,
         human_in_the_loop: bool = False,
         auth: list[str] | None = None,
+        max_tokens: int | None = None,
+        supports_dry_run: bool = False,
+        requires_approval: bool = False,
+        danger_level: str | None = None,
+        allow_python_eval: bool = False,
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
@@ -318,6 +353,11 @@ class Tooli(typer.Typer):
                 cost_hint=cost_hint,
                 human_in_the_loop=human_in_the_loop,
                 auth=auth or [],
+                max_tokens=max_tokens,
+                supports_dry_run=supports_dry_run,
+                requires_approval=requires_approval,
+                danger_level=danger_level,
+                allow_python_eval=allow_python_eval,
                 list_processing=bool(list_processing),
                 paginated=bool(paginated),
                 version=None if version is None else str(version),

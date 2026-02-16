@@ -19,11 +19,33 @@ class MCPToolDefinition(BaseModel):
     annotations: dict[str, Any] | None = None
 
 
-def export_mcp_tools(app: Tooli) -> list[dict[str, Any]]:
+def export_mcp_tools(app: Tooli, *, defer_loading: bool = False) -> list[dict[str, Any]]:
     """Export all registered commands as MCP tool definitions."""
     from tooli.annotations import ToolAnnotation
     from tooli.command_meta import get_command_meta
     from tooli.schema import generate_tool_schema
+
+    if defer_loading:
+        return [
+            {
+                "name": "search_tools",
+                "description": "Find command names and signatures that match a query.",
+                "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}},
+            },
+            {
+                "name": "run_tool",
+                "description": "Execute an existing Tooli command by name.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "arguments": {"type": "object", "additionalProperties": True},
+                    },
+                    "required": ["name"],
+                },
+                "annotations": {"readOnlyHint": False},
+            },
+        ]
 
     tools = []
     for tool_def in app.get_tools():

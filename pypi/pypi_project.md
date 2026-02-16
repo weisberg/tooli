@@ -43,7 +43,7 @@ from typing import Annotated
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Idempotent, ReadOnly
 
-app = Tooli(name="file-tools", description="File utilities", version="1.1.0")
+app = Tooli(name="file-tools", description="File utilities", version="1.2.0")
 
 
 @app.command(annotations=ReadOnly | Idempotent, paginated=True, list_processing=True)
@@ -81,7 +81,7 @@ JSON envelope shape:
   "result": {"...": "..."},
   "meta": {
     "tool": "file-tools.find-files",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "duration_ms": 12,
     "annotations": {"readOnlyHint": true, "idempotentHint": true}
   }

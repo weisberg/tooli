@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tooli"
-version = "1.1.0"
+version = "1.2.0"
 description = "The agent-native CLI framework for Python"
 readme = "pypi/pypi_project.md"
 requires-python = ">=3.10"
@@ -28,6 +28,9 @@ dependencies = [
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
 ]
+
+[project.scripts]
+tooli = "tooli.cli:main"
 
 [project.optional-dependencies]
 dev = [

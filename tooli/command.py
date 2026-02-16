@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 import json
+import os
 import signal
 import sys
+import tempfile
 import time
 import traceback
 import types
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Any, get_args, get_origin
 
 import click
@@ -216,6 +220,114 @@ def _annotation_labels(callback: Callable[..., Any] | None) -> list[str]:
     return labels
 
 
+def _is_agent_mode(ctx: click.Context, mode: OutputMode) -> bool:
+    if os.getenv("TOOLI_AGENT_MODE", "").lower() in {"1", "true", "yes", "on"}:
+        return True
+    if not click.get_text_stream("stdout").isatty():
+        return True
+    return mode in {OutputMode.JSON, OutputMode.JSONL}
+
+
+def _estimate_tokens(text: str) -> int:
+    if not text:
+        return 0
+    return max(1, len(text) // 4)
+
+
+def _build_truncation_payload(*, full_path: str, full_output_lines: list[str], max_tokens: int) -> dict[str, Any]:
+    head = full_output_lines[:50]
+    tail = full_output_lines[-50:] if len(full_output_lines) > 50 else full_output_lines
+    return {
+        "truncated": True,
+        "max_tokens": max_tokens,
+        "artifact_path": full_path,
+        "line_count": len(full_output_lines),
+        "head": head,
+        "tail": tail,
+        "message": (
+            "Output truncated. First 50 lines and last 50 lines shown. "
+            f"Full output saved to {full_path}. Use 'tooli_read_page' to view more."
+        ),
+    }
+
+
+def _write_token_protection_artifact(full_output: str) -> Path:
+    log_dir = Path(tempfile.gettempdir()) / "tooli_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        prefix="tooli_output_",
+        suffix=".json",
+        dir=log_dir,
+        mode="w",
+        encoding="utf-8",
+        delete=False,
+    ) as handle:
+        handle.write(full_output)
+        return Path(handle.name)
+
+
+def _maybe_emit_token_limited_json(
+    *,
+    result: Any,
+    mode: OutputMode,
+    ctx: click.Context,
+    app_version: str,
+    duration_ms: int,
+    annotation_hints: dict[str, Any] | None,
+    pagination_meta: dict[str, Any],
+    max_tokens: int | None,
+) -> Any | None:
+    if max_tokens is None or max_tokens <= 0:
+        return None
+
+    if mode not in {OutputMode.JSON, OutputMode.JSONL}:
+        return None
+
+    if not _is_agent_mode(ctx, mode):
+        return None
+
+    payload = Envelope(
+        ok=True,
+        result=result,
+        meta=_build_envelope_meta(
+            ctx,
+            app_version=app_version,
+            duration_ms=duration_ms,
+            annotations=annotation_hints,
+            truncated=bool(pagination_meta.get("truncated", False)),
+            next_cursor=pagination_meta.get("next_cursor"),
+            truncation_message=pagination_meta.get("truncation_message"),
+        ),
+    ).model_dump()
+    full_output = _json_dumps(payload)
+    if _estimate_tokens(full_output) <= max_tokens:
+        return None
+
+    artifact_path = _write_token_protection_artifact(full_output)
+    lines = full_output.splitlines()
+    truncation_payload = _build_truncation_payload(
+        full_path=str(artifact_path),
+        full_output_lines=lines,
+        max_tokens=max_tokens,
+    )
+    return {
+        "mode": "token_limit",
+        "result": truncation_payload,
+        "meta": {
+            "tool": _get_tool_id(ctx),
+            "version": app_version,
+            "duration_ms": duration_ms,
+            "dry_run": bool(getattr(ctx.obj, "dry_run", False)),
+            "warnings": payload["meta"]["warnings"],
+            "annotations": annotation_hints,
+            "truncated": True,
+            "next_cursor": pagination_meta.get("next_cursor"),
+            "truncation_message": pagination_meta.get("truncation_message")
+            or f"Output token estimate exceeded {max_tokens}.",
+        },
+    }
+
+
 def _extract_pagination_flags(ctx: click.Context, *, paginated: bool) -> PaginationParams:
     if not paginated:
         return PaginationParams()
@@ -349,6 +461,55 @@ def _parse_null_delimited_input() -> list[str]:
     return [entry for entry in raw.split("\0") if entry]
 
 
+def _evaluate_python_payload(code: str, *, command_name: str) -> dict[str, Any]:
+    stripped = code.strip()
+    if not stripped:
+        return {}
+
+    try:
+        tree = ast.parse(stripped, mode="eval")
+    except SyntaxError as e:
+        raise InputError(
+            message=(
+                f"{command_name}: python-eval input must be a valid expression."
+            ),
+            code="E1005",
+            details={"error": str(e)},
+        ) from e
+
+    allowed_builtins = {
+        "int": int,
+        "float": float,
+        "str": str,
+        "bool": bool,
+        "len": len,
+        "list": list,
+        "dict": dict,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "sorted": sorted,
+    }
+
+    try:
+        value = eval(compile(tree, filename="<agent-python-eval>", mode="eval"), {"__builtins__": allowed_builtins}, {})
+    except Exception as e:
+        raise InputError(
+            message=f"{command_name}: failed to evaluate python-eval payload.",
+            code="E1006",
+            details={"error": str(e)},
+        ) from e
+
+    if not isinstance(value, dict):
+        raise InputError(
+            message=f"{command_name}: python-eval payload must evaluate to a mapping.",
+            code="E1007",
+            details={"value_type": type(value).__name__},
+        )
+
+    return value
+
+
 def _resolve_null_input_arg(ctx: click.Context) -> str | None:
     command = getattr(ctx, "command", None)
     if command is None:
@@ -376,6 +537,34 @@ def _resolve_null_input_arg(ctx: click.Context) -> str | None:
     return None
 
 
+def _apply_python_eval_inputs(
+    callback: Callable[..., Any],
+    ctx: click.Context,
+    *,
+    command_name: str,
+    allow_python_eval: bool,
+) -> None:
+    if not allow_python_eval or sys.stdin.isatty():
+        return
+
+    if not ctx.meta.get("tooli_flag_python_eval", False):
+        return
+
+    payload = _evaluate_python_payload(sys.stdin.read(), command_name=command_name)
+    if not payload:
+        return
+
+    signature = inspect.signature(callback)
+    for param_name, param in signature.parameters.items():
+        if param_name in ("ctx", "self", "cls"):
+            continue
+        if param_name in payload:
+            value = payload[param_name]
+            ctx.params[param_name] = value
+        elif param_name in ctx.params and param.default is inspect.Parameter.empty:
+            # Let invocation-time validation surface missing required values.
+            continue
+
 def _render_list_output(values: Iterable[Any], *, delimiter: str) -> str:
     return delimiter.join(str(item) for item in values)
 
@@ -384,13 +573,18 @@ def _needs_human_confirmation(
     policy: SecurityPolicy,
     *,
     is_destructive: bool,
+    requires_approval: bool,
     has_human_in_the_loop: bool,
     force: bool,
     yes_override: bool,
 ) -> bool:
-    if not is_destructive or policy == SecurityPolicy.OFF:
+    if not is_destructive and not requires_approval:
         return False
     if force:
+        return False
+    if requires_approval:
+        return True
+    if policy == SecurityPolicy.OFF:
         return False
     if policy == SecurityPolicy.STRICT and has_human_in_the_loop:
         return True
@@ -596,6 +790,14 @@ class TooliCommand(TyperCommand):
                     expose_value=False,
                     callback=_capture_tooli_flags,
                 ),
+                click.Option(
+                    ["--python-eval"],
+                    is_flag=True,
+                    help="Evaluate stdin as a Python expression and inject the returned mapping as arguments.",
+                    expose_value=False,
+                    hidden=True,
+                    callback=_capture_tooli_flags,
+                ),
             ]
         )
 
@@ -781,8 +983,20 @@ class TooliCommand(TyperCommand):
         if cb_meta.cost_hint:
             lines.append("cost_hint=" + str(cb_meta.cost_hint))
 
+        if cb_meta.max_tokens is not None:
+            lines.append("max_tokens=" + str(cb_meta.max_tokens))
+
+        if cb_meta.requires_approval:
+            lines.append("requires_approval=true")
+
+        if cb_meta.danger_level:
+            lines.append("danger_level=" + str(cb_meta.danger_level))
+
         if cb_meta.human_in_the_loop:
             lines.append("human_in_the_loop=true")
+
+        if cb_meta.allow_python_eval:
+            lines.append("allow_python_eval=true")
 
         return "\n".join(lines)
 
@@ -806,7 +1020,11 @@ class TooliCommand(TyperCommand):
         )
         cb_meta = get_command_meta(self.callback)
         required_scopes = list(cb_meta.auth)
+        max_tokens = cb_meta.max_tokens
         auth_context = cb_meta.auth_context
+        requires_approval = bool(cb_meta.requires_approval)
+        danger_level = cb_meta.danger_level
+        allow_python_eval = bool(cb_meta.allow_python_eval)
 
         # Initialize ToolContext and store in ctx.obj for callback access.
         ctx.obj = ToolContext(
@@ -875,17 +1093,22 @@ class TooliCommand(TyperCommand):
         command_span = start_command_span(command=command_name, arguments=_observation_args())
 
         def _enforce_security_policy() -> None:
-            if security_policy == SecurityPolicy.OFF:
+            if security_policy == SecurityPolicy.OFF and not requires_approval:
                 return
 
             is_destructive = _is_destructive_command(self.callback)
-            if not is_destructive:
+            if not is_destructive and not requires_approval:
                 return
+
+            confirmation_label = "high-risk" if requires_approval else "destructive"
+            if danger_level:
+                confirmation_label = f"{danger_level} risk"
 
             has_human_in_the_loop = cb_meta.human_in_the_loop
             confirm_needed = _needs_human_confirmation(
                 policy=security_policy,
                 is_destructive=True,
+                requires_approval=requires_approval,
                 has_human_in_the_loop=has_human_in_the_loop,
                 force=ctx.obj.force,
                 yes_override=ctx.obj.yes,
@@ -915,17 +1138,21 @@ class TooliCommand(TyperCommand):
             _audit_security_event(
                 ctx,
                 event="destructive_confirmation_required",
-                details={"policy": security_policy.value, "human_in_the_loop": has_human_in_the_loop},
+                details={
+                    "policy": security_policy.value,
+                    "human_in_the_loop": has_human_in_the_loop,
+                    "reason": confirmation_label,
+                },
             )
             if security_policy == SecurityPolicy.STRICT and has_human_in_the_loop:
                 confirm = ctx.obj.confirm(
-                    message="This command is destructive and requires manual confirmation.",
+                    message=f"This command is {confirmation_label} and requires manual confirmation.",
                     default=False,
                     allow_yes_override=False,
                 )
             else:
                 confirm = ctx.obj.confirm(
-                    message="This command is destructive and requires manual confirmation.",
+                    message=f"This command is {confirmation_label} and requires manual confirmation.",
                     default=False,
                 )
 
@@ -1020,6 +1247,12 @@ class TooliCommand(TyperCommand):
                         ctx.params[list_arg] = parsed  # type: ignore[assignment]
 
             if not used_cached_result:
+                _apply_python_eval_inputs(
+                    self.callback,  # type: ignore[arg-type]
+                    ctx,
+                    command_name=command_name,
+                    allow_python_eval=allow_python_eval,
+                )
                 _authorize()
                 _enforce_security_policy()
 
@@ -1122,6 +1355,20 @@ class TooliCommand(TyperCommand):
 
         _emit_invocation(status="success", exit_code=0)
         _emit_telemetry(success=True, exit_code=0)
+        truncated_envelope = _maybe_emit_token_limited_json(
+            result=result,
+            mode=mode,
+            ctx=ctx,
+            app_version=app_version or "0.0.0",
+            duration_ms=duration_ms,
+            annotation_hints=annotation_hints,
+            pagination_meta=pagination_meta,
+            max_tokens=max_tokens,
+        )
+
+        if truncated_envelope is not None:
+            click.echo(_json_dumps(truncated_envelope))
+            return result
 
         if mode == OutputMode.AUTO:
             if click.get_text_stream("stdout").isatty() and not no_color and not ctx.obj.quiet:

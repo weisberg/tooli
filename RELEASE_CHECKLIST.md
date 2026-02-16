@@ -1,8 +1,8 @@
 # Release Checklist
 
-This checklist tracks repeatable release hygiene tasks for Tooli, starting with the v1.1 stabilization program.
+This checklist tracks repeatable release hygiene tasks for Tooli, starting with the v1.2 stabilization program.
 
-## v1.1 Stabilization Gate
+## v1.2 Stabilization Gate
 
 - [ ] Repository hygiene pass completed (no accidental duplicate-suffix tracked files).
 - [ ] Version consistency pass completed (`pyproject.toml` version matches latest `CHANGELOG.md` entry).

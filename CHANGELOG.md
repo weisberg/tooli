@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-16
+
+### Added
+- Added top-level `tooli` launcher for MCP serving by module path (`--transport`, `--defer-loading`).
+- Added deferred MCP discovery with `search_tools` and `run_tool`.
+- Added output token-budget support via `max_tokens` metadata and `tooli_read_page` artifact reader.
+- Added opt-in Python payload mode (`allow_python_eval` and `--python-eval`) for command argument injection.
+- Added command-level approval signals (`requires_approval` and `danger_level`) for higher-confidence HITL behavior.
+
+### Changed
+- Extended MCP export with `defer_loading` mode.
+- Exposed new governance metadata in command behavior output and docs.
+
 ## [1.1.0] - 2026-02-16
 
 ### Added
@@ -55,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[1.2.0]: https://github.com/weisberg/tooli/releases/tag/v1.2.0
 [1.1.0]: https://github.com/weisberg/tooli/releases/tag/v1.1.0
 [1.0.2]: https://github.com/weisberg/tooli/releases/tag/v1.0.2
 [1.0.1]: https://github.com/weisberg/tooli/releases/tag/v1.0.1
