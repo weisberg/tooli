@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 from typer.testing import CliRunner
 
-from examples.taskr.app import app
+from examples.taskr.app import app, list_, purge
+from tooli.command_meta import get_command_meta
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -117,3 +118,26 @@ def test_taskr_list_with_filters(tmp_path: Path) -> None:
     high = _run_json(runner, ["list", "--store", store, "--priority", "high"])
     assert len(high) == 1
     assert high[0]["title"] == "High task"
+
+
+def test_taskr_remove_deprecated_alias(tmp_path: Path) -> None:
+    store = str(tmp_path / "tasks.json")
+    runner = CliRunner()
+
+    r1 = _run_json(runner, ["add", "Task A", "--store", store])
+    _run_json(runner, ["add", "Task B", "--store", store])
+    _run_json(runner, ["done", r1["task"]["id"], "--store", store])
+
+    result = _run_json(runner, ["remove", "--store", store, "--yes"])
+    assert result["purged"] == 1
+    assert result["remaining"] == 1
+
+
+def test_taskr_list_version_metadata() -> None:
+    meta = get_command_meta(list_)
+    assert meta.version == "1.0"
+
+
+def test_taskr_purge_requires_approval() -> None:
+    meta = get_command_meta(purge)
+    assert meta.requires_approval is True

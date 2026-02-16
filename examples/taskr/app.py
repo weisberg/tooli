@@ -19,7 +19,15 @@ from tooli import Argument, Option, Tooli
 from tooli.annotations import Destructive, Idempotent, ReadOnly
 from tooli.errors import InputError
 
-app = Tooli(name="taskr", help="Local task manager with JSON storage")
+app = Tooli(
+    name="taskr",
+    help="Local task manager with JSON storage",
+    workflows=[{
+        "name": "task-lifecycle",
+        "description": "Create, track, and clean up tasks",
+        "steps": ["add", "list", "done", "purge"],
+    }],
+)
 
 DEFAULT_STORE = "taskr-data.json"
 
@@ -60,7 +68,7 @@ def _find_task(tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any] | No
     return None
 
 
-@app.command(annotations=Idempotent)
+@app.command(annotations=Idempotent, error_codes={"E9001": "Invalid priority value"})
 def add(
     ctx: typer.Context,
     title: Annotated[str, Argument(help="Task title")],
@@ -111,7 +119,7 @@ def add(
     }
 
 
-@app.command(name="list", paginated=True, annotations=ReadOnly)
+@app.command(name="list", paginated=True, annotations=ReadOnly, version="1.0")
 def list_(
     *,
     store: Annotated[str, Option(help="JSON store file path")] = DEFAULT_STORE,
@@ -230,13 +238,43 @@ def edit(
     }
 
 
-@app.command(annotations=Destructive)
+@app.command(
+    annotations=Destructive,
+    requires_approval=True,
+    error_codes={"E9006": "No completed tasks to purge"},
+)
 def purge(
     ctx: typer.Context,
     *,
     store: Annotated[str, Option(help="JSON store file path")] = DEFAULT_STORE,
 ) -> dict[str, Any]:
     """Remove all completed tasks. Destructive: cannot be undone."""
+    tasks = _read_store(store)
+    completed = [t for t in tasks if t.get("status") == "done"]
+    remaining = [t for t in tasks if t.get("status") != "done"]
+
+    if not getattr(ctx.obj, "dry_run", False):
+        _write_store(store, remaining)
+
+    return {
+        "purged": len(completed),
+        "remaining": len(remaining),
+        "purged_ids": [t["id"] for t in completed],
+    }
+
+
+@app.command(
+    name="remove",
+    annotations=Destructive,
+    deprecated=True,
+    deprecated_message="Use 'purge' instead",
+)
+def remove(
+    ctx: typer.Context,
+    *,
+    store: Annotated[str, Option(help="JSON store file path")] = DEFAULT_STORE,
+) -> dict[str, Any]:
+    """Remove all completed tasks. Deprecated: use 'purge' instead."""
     tasks = _read_store(store)
     completed = [t for t in tasks if t.get("status") == "done"]
     remaining = [t for t in tasks if t.get("status") != "done"]

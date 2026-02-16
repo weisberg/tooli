@@ -1022,6 +1022,13 @@ class TooliCommand(TyperCommand):
         params.extend(
             [
                 click.Option(
+                    ["--agent-manifest"],
+                    is_flag=True,
+                    help="Emit agent manifest JSON payload.",
+                    expose_value=False,
+                    callback=_capture_tooli_flags,
+                ),
+                click.Option(
                     ["--response-format"],
                     type=click.Choice([m.value for m in ResponseFormat], case_sensitive=False),
                     help="Response format for command return values.",
@@ -1134,46 +1141,106 @@ class TooliCommand(TyperCommand):
         return ":".join(parts)
 
     @staticmethod
+    def _yaml_value(value: Any) -> str:
+        if value is None:
+            return "null"
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return str(value)
+        return json.dumps(str(value))
+
+    @staticmethod
     def _render_help_agent_output(ctx: click.Context) -> str:
         if ctx.command is None:
             return ""
 
+        from tooli.schema import generate_tool_schema
+
         command = ctx.command
         lines = [
-            f"command {command.name or ctx.info_name or 'tooli'}:",
-            f"help={command.help or command.get_short_help_str(100) or ''}",
+            f"command: {command.name or ctx.info_name or 'tooli'}",
+            f"description: {(command.help or command.get_short_help_str(100) or '').strip()}",
         ]
 
         params = [p for p in command.params if p.expose_value]
+        lines.append("params:")
+        for param in params:
+            if isinstance(param, click.Option):
+                names = param.opts + param.secondary_opts if (param.opts or param.secondary_opts) else [param.name or "option"]
+                names = [name.replace("--", "") for name in names]
+            else:
+                names = [param.name or "arg"]
+
+            if isinstance(param.type, click.Choice):
+                param_type = "choice"
+            elif param.type and param.type.name:
+                param_type = str(param.type.name)
+            else:
+                param_type = "unknown"
+
+            lines.append("  - name: " + ", ".join(sorted(set(names))))
+            lines.append(f"    type: {param_type}")
+            lines.append(f"    required: {TooliCommand._yaml_value(bool(getattr(param, 'required', False)))}")
+
+            if not isinstance(param, click.Argument):
+                lines.append(f"    default: {TooliCommand._yaml_value(param.default)}")
+
+            if getattr(param, "help", None):
+                lines.append(f"    help: {TooliCommand._yaml_value(param.help)}")
+
         if params:
-            lines.append("params=" + "|".join(TooliCommand._format_param_for_help_agent(p) for p in params))
+            lines.append("")
 
         callback = getattr(ctx.command, "callback", None)
         cb_meta = get_command_meta(callback)
+
         if cb_meta.auth:
-            lines.append("auth=" + ",".join(cb_meta.auth))
+            lines.append("auth:")
+            for item in cb_meta.auth:
+                lines.append(f"  - {item}")
 
         labels = _annotation_labels(callback)
         if labels:
-            lines.append("annotations=" + ",".join(labels))
+            lines.append("behavior:")
+            for item in labels:
+                lines.append(f"  - {item}")
+
+        schema = generate_tool_schema(callback, name=ctx.command.name or "command") if callback else None
+        if schema and schema.output_schema:
+            lines.append("output: " + TooliCommand._yaml_value(json.dumps(schema.output_schema, separators=(",", ":"))))
 
         if cb_meta.cost_hint:
-            lines.append("cost_hint=" + str(cb_meta.cost_hint))
+            lines.append(f"cost_hint: {TooliCommand._yaml_value(str(cb_meta.cost_hint))}")
 
         if cb_meta.max_tokens is not None:
-            lines.append("max_tokens=" + str(cb_meta.max_tokens))
+            lines.append(f"max_tokens: {TooliCommand._yaml_value(cb_meta.max_tokens)}")
 
         if cb_meta.requires_approval:
-            lines.append("requires_approval=true")
+            lines.append("requires_approval: true")
 
         if cb_meta.danger_level:
-            lines.append("danger_level=" + str(cb_meta.danger_level))
+            lines.append(f"danger_level: {TooliCommand._yaml_value(str(cb_meta.danger_level))}")
 
         if cb_meta.human_in_the_loop:
-            lines.append("human_in_the_loop=true")
+            lines.append("human_in_the_loop: true")
 
         if cb_meta.allow_python_eval:
-            lines.append("allow_python_eval=true")
+            lines.append("allow_python_eval: true")
+
+        if cb_meta.error_codes:
+            lines.append("errors:")
+            for code, message in sorted(cb_meta.error_codes.items(), key=lambda item: item[0]):
+                lines.append(f"  - \"{code}\"")
+
+        if cb_meta.examples:
+            example = cb_meta.examples[0]
+            example_args = example.get("args", [])
+            example_text = ""
+            if isinstance(example_args, list):
+                example_text = " ".join(str(arg) for arg in example_args if arg is not None).strip()
+            if example_text:
+                lines.append(f"example: {TooliCommand._yaml_value(example_text)}")
 
         return "\n".join(lines)
 
@@ -1219,6 +1286,17 @@ class TooliCommand(TyperCommand):
         if bool(ctx.meta.get("tooli_flag_help_agent", False)):
             click.echo(self._render_help_agent_output(ctx))
             return None
+
+        if bool(ctx.meta.get("tooli_flag_agent_manifest", False)):
+            cb_meta = get_command_meta(self.callback)
+            app = cb_meta.app
+            if app is None:
+                raise click.ClickException("Unable to resolve application metadata for --agent-manifest.")
+
+            from tooli.manifest import generate_agent_manifest
+
+            click.echo(json.dumps(generate_agent_manifest(app), indent=2))
+            ctx.exit(int(ExitCode.SUCCESS))
 
         if bool(ctx.meta.get("tooli_flag_schema", False)):
             from tooli.schema import generate_tool_schema

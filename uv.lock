@@ -1953,7 +1953,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "typer" },
 ]
 
 [package.optional-dependencies]
@@ -1970,6 +1969,9 @@ dev = [
 mcp = [
     { name = "fastmcp" },
 ]
+typer = [
+    { name = "typer" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1982,10 +1984,10 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "starlette", marker = "extra == 'api'", specifier = ">=0.27" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
-    { name = "typer", specifier = ">=0.9" },
+    { name = "typer", marker = "extra == 'typer'", specifier = ">=0.9" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.20" },
 ]
-provides-extras = ["dev", "mcp", "api"]
+provides-extras = ["typer", "dev", "mcp", "api"]
 
 [[package]]
 name = "typer"

@@ -57,7 +57,9 @@ def test_schema_includes_auth_requirements() -> None:
 
     result = CliRunner().invoke(app, ["scoped", "--help-agent", "--text"])
     assert result.exit_code == 0
-    assert "auth=scopes:one,scopes:two" in result.output
+    assert "auth:" in result.output
+    assert "- scopes:one" in result.output
+    assert "- scopes:two" in result.output
 
     schema = generate_tool_schema(scoped, name="auth-app.scoped")
     assert schema.auth == ["scopes:one", "scopes:two"]

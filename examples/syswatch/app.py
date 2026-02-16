@@ -15,13 +15,13 @@ import time
 from typing import Annotated, Any
 
 from tooli import Option, Tooli
-from tooli.annotations import ReadOnly
+from tooli.annotations import OpenWorld, ReadOnly
 from tooli.errors import InputError, ToolRuntimeError
 
 app = Tooli(name="syswatch", help="System health inspection tools")
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly | OpenWorld)
 def status() -> dict[str, Any]:
     """System overview: OS, hostname, Python version, CPU count, load averages."""
     info: dict[str, Any] = {
@@ -217,7 +217,7 @@ def network() -> list[dict[str, Any]]:
     return interfaces
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly, cost_hint="high")
 def watch(
     *,
     interval: Annotated[float, Option(help="Seconds between checks")] = 1.0,

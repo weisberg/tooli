@@ -23,7 +23,6 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "typer>=0.9",
     "pydantic>=2.0",
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
@@ -33,6 +32,9 @@ dependencies = [
 tooli = "tooli.cli:main"
 
 [project.optional-dependencies]
+typer = [
+    "typer>=0.9",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
