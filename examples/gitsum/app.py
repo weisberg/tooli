@@ -18,7 +18,19 @@ from tooli import Argument, Option, Tooli
 from tooli.annotations import ReadOnly
 from tooli.errors import InputError, ToolRuntimeError
 
-app = Tooli(name="gitsum", help="Git repository analysis and statistics")
+app = Tooli(
+    name="gitsum",
+    help="Git repository analysis and statistics",
+    triggers=[
+        "analyzing git history",
+        "reviewing commit patterns",
+        "checking repository health",
+    ],
+    anti_triggers=[
+        "modifying git state",
+        "when git is not installed",
+    ],
+)
 
 
 def _run_git(args: list[str], repo: str = ".") -> str:
@@ -111,7 +123,7 @@ def summary(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, timeout=60.0)
 def log_stats(
     *,
     repo: Annotated[str, Option(help="Path to git repository")] = ".",
@@ -162,7 +174,7 @@ def log_stats(
     return commits
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly, timeout=30.0)
 def diff_review(
     source: Annotated[str, Argument(help="Diff file path, '-' for stdin, or git ref range (e.g. HEAD~3..HEAD)")],
     *,

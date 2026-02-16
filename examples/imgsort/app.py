@@ -92,7 +92,7 @@ def scan(
     ]
 
 
-@app.command(annotations=Destructive | Idempotent)
+@app.command(annotations=Destructive | Idempotent, human_in_the_loop=True, danger_level="medium")
 @dry_run_support
 def organize(
     ctx: typer.Context,
@@ -185,7 +185,7 @@ def duplicates(
     return results
 
 
-@app.command(annotations=Destructive | Idempotent)
+@app.command(annotations=Destructive | Idempotent, danger_level="medium")
 @dry_run_support
 def rename(
     ctx: typer.Context,

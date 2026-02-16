@@ -13,11 +13,24 @@ from typing import Annotated, Any
 
 import typer  # noqa: TC002
 
-from tooli import Argument, Option, Tooli
+from tooli import Argument, Option, SecretInput, Tooli
 from tooli.annotations import Destructive, ReadOnly
-from tooli.errors import InputError
+from tooli.errors import InputError, Suggestion
 
-app = Tooli(name="envar", help="Environment variable and secrets manager")
+app = Tooli(
+    name="envar",
+    help="Environment variable and secrets manager",
+    rules=[
+        "Always validate variable names before writing",
+        "Values are masked by default in list output",
+    ],
+    env_vars={
+        "ENVAR_DEFAULT_FILE": {
+            "description": "Default dotenv file path",
+            "default": ".env",
+        },
+    },
+)
 
 
 def _parse_dotenv(path: str) -> dict[str, str]:
@@ -74,14 +87,18 @@ def get(
         message=f"Variable not found: {name}",
         code="E7002",
         details={"name": name, "env_file": env_file},
+        suggestion=Suggestion(
+            action="check_name",
+            fix=f"Verify the variable name '{name}' is correct, or use 'list' to see available variables.",
+        ),
     )
 
 
-@app.command(name="set", annotations=Destructive)
+@app.command(name="set", annotations=Destructive, auth=["env:write"])
 def set_(
     ctx: typer.Context,
     name: Annotated[str, Argument(help="Variable name")],
-    value: Annotated[str, Argument(help="Variable value")],
+    value: Annotated[SecretInput[str], Argument(help="Variable value (secret)")],
     *,
     env_file: Annotated[str, Option(help="Dotenv file path")] = ".env",
 ) -> dict[str, Any]:

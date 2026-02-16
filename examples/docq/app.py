@@ -56,7 +56,16 @@ def _read_source(source: str) -> tuple[str, str]:
         ) from exc
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    output_example={
+        "source": "README.md",
+        "lines": 42,
+        "words": 300,
+        "characters": 1800,
+        "paragraphs": 8,
+    },
+)
 def stats(
     source: Annotated[str, Argument(help="File path or '-' for stdin")],
 ) -> dict[str, Any]:
@@ -108,7 +117,7 @@ def headings(
     return results
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, max_tokens=8000)
 def search(
     source: Annotated[str, Argument(help="File or '-' for stdin")],
     pattern: Annotated[str, Argument(help="Search pattern (substring or regex)")],

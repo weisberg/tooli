@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING
 
 from typer.testing import CliRunner
 
-from examples.envar.app import app
+from examples.envar.app import app, set_
+from tooli.auth import AuthContext
+from tooli.command_meta import get_command_meta
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,12 +57,18 @@ def test_envar_set(tmp_path: Path) -> None:
     env_file.write_text(SAMPLE_ENV, encoding="utf-8")
     runner = CliRunner()
 
-    result = _run_json(runner, ["set", "NEW_VAR", "hello", "--env-file", str(env_file), "--yes"])
-    assert result["written"] is True
-    assert result["overwritten"] is False
+    meta = get_command_meta(set_)
+    old_ctx = meta.auth_context
+    meta.auth_context = AuthContext(scopes=frozenset(["env:write"]))
+    try:
+        result = _run_json(runner, ["set", "NEW_VAR", "hello", "--env-file", str(env_file), "--yes"])
+        assert result["written"] is True
+        assert result["overwritten"] is False
 
-    get_result = _run_json(runner, ["get", "NEW_VAR", "--env-file", str(env_file)])
-    assert get_result["value"] == "hello"
+        get_result = _run_json(runner, ["get", "NEW_VAR", "--env-file", str(env_file)])
+        assert get_result["value"] == "hello"
+    finally:
+        meta.auth_context = old_ctx
 
 
 def test_envar_list_masked(tmp_path: Path) -> None:
@@ -113,3 +121,18 @@ def test_envar_list_with_prefix(tmp_path: Path) -> None:
     result = _run_json(runner, ["list", "--env-file", str(env_file), "--prefix", "APP_"])
     assert len(result) == 1
     assert result[0]["name"] == "APP_NAME"
+
+
+def test_envar_set_auth_metadata() -> None:
+    meta = get_command_meta(set_)
+    assert "env:write" in meta.auth
+
+
+def test_envar_get_suggestion_on_missing(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(SAMPLE_ENV, encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["get", "NONEXISTENT", "--env-file", str(env_file)])
+    assert result.exit_code != 0
+    assert "suggestion" in result.output.lower() or "check_name" in result.output
