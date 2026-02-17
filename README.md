@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v4.1)
+## Current State (v5.0)
 
-Tooli v4.1 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 359 tests passing across Python 3.10+.
+Tooli v5.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 529+ tests passing across Python 3.10+.
 
 ### What ships today
 
@@ -50,6 +50,9 @@ Tooli v4.1 is production-ready and published on [PyPI](https://pypi.org/project/
 | **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans with caller attributes |
 | **Eval** | Metadata coverage reporter, upgrade analyzer, LLM-powered skill roundtrip evaluation |
 | **Extensibility** | Provider system (local, filesystem), transform pipeline (namespace, visibility), tool versioning |
+| **Python API** | `app.call()`, `app.acall()`, `app.stream()`, `app.astream()` for direct in-process invocation with typed `TooliResult` objects |
+| **Capabilities** | Granular permission declarations (`fs:read`, `net:write`) with STRICT mode enforcement via `TOOLI_ALLOWED_CAPABILITIES` |
+| **Multi-Agent** | Handoff metadata and delegation hints for agent workflow orchestration. AGENTS.md generator for GitHub Copilot / Codex compatibility |
 | **HTTP API** | OpenAPI 3.1 schema generation + Starlette server (experimental) |
 
 ---
@@ -79,7 +82,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="4.1.0",
+    version="5.0.0",
 )
 
 @app.command(

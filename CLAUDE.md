@@ -2,11 +2,11 @@
 
 ## Quick Reference
 
-- **Version**: 4.1.0
+- **Version**: 5.0.0
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory
-- **Tests**: `tests/` directory (359 tests)
+- **Tests**: `tests/` directory (529+ tests)
 - **Examples**: `examples/` directory (18 complete apps)
 
 ## Commands
@@ -59,6 +59,13 @@ Tooli extends Typer to produce CLI tools that are human-friendly and machine-con
 - `tooli/envelope.py` -- Now includes `caller_id`, `caller_version`, `session_id` in `EnvelopeMeta`
 - `tooli/telemetry.py` -- OTel span caller attributes via `set_caller()`
 - `tooli/eval/recorder.py` -- `InvocationRecord` schema v2 with `caller_id`/`session_id` fields
+
+### v5 Universal Agent Tool Interface Modules
+- `tooli/python_api.py` -- `TooliResult[T]`, `TooliError` frozen dataclasses for typed Python API results
+- `tooli/app.py` -- `call()`, `acall()`, `stream()`, `astream()`, `get_command()` methods
+- `tooli/command_meta.py` -- v5 fields: `capabilities`, `handoffs`, `delegation_hint`
+- `tooli/docs/agents_md.py` -- AGENTS.md generator (GitHub Copilot / OpenAI Codex compatible)
+- `tooli/command.py` -- Capability enforcement (`TOOLI_ALLOWED_CAPABILITIES`), output schema in envelope
 
 ### Optional Modules
 - `tooli/mcp/` -- MCP server support (requires `tooli[mcp]`), includes auto-registered `skill://` resources
