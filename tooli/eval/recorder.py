@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EVAL_DIR = Path.home() / ".config" / "tooli" / "eval"
 DEFAULT_EVAL_FILE = "invocations.jsonl"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def _parse_record_path(value: str | None) -> Path | None:
@@ -72,9 +72,11 @@ class InvocationRecord:
     duration_ms: int
     error_code: str | None
     exit_code: int | None
+    caller_id: str | None = None
+    session_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "schema_version": self.schema_version,
             "recorded_at": self.recorded_at,
             "command": self.command,
@@ -84,6 +86,11 @@ class InvocationRecord:
             "error_code": self.error_code,
             "exit_code": self.exit_code,
         }
+        if self.caller_id is not None:
+            result["caller_id"] = self.caller_id
+        if self.session_id is not None:
+            result["session_id"] = self.session_id
+        return result
 
 
 class InvocationRecorder:
@@ -107,6 +114,8 @@ class InvocationRecorder:
         duration_ms: int,
         error_code: str | None,
         exit_code: int | None,
+        caller_id: str | None = None,
+        session_id: str | None = None,
     ) -> None:
         payload = InvocationRecord(
             schema_version=SCHEMA_VERSION,
@@ -117,6 +126,8 @@ class InvocationRecorder:
             duration_ms=duration_ms,
             error_code=error_code,
             exit_code=exit_code,
+            caller_id=caller_id,
+            session_id=session_id,
         )
 
         try:

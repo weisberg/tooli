@@ -229,6 +229,7 @@ def _is_agent_mode(
     """Return True when structured JSON output should be preferred.
 
     This is used by both parser-level flows and command-level runtime flows.
+    Uses the full detection module when available, with legacy fallbacks.
     """
     if os.getenv("TOOLI_AGENT_MODE", "").lower() in {"1", "true", "yes", "on"}:
         return True
@@ -236,7 +237,8 @@ def _is_agent_mode(
         return True
     if ctx is not None and mode is not None:
         return mode in {OutputMode.JSON, OutputMode.JSONL}
-    return not click.get_text_stream("stdout").isatty()
+    from tooli.detect import CallerCategory, _get_context
+    return _get_context().category != CallerCategory.HUMAN
 
 
 def _estimate_tokens(text: str) -> int:
@@ -657,6 +659,7 @@ def _needs_human_confirmation(
     has_human_in_the_loop: bool,
     force: bool,
     yes_override: bool,
+    is_agent_caller: bool = False,
 ) -> bool:
     if not is_destructive and not requires_approval:
         return False
@@ -668,6 +671,9 @@ def _needs_human_confirmation(
         return False
     if policy == SecurityPolicy.STRICT and has_human_in_the_loop:
         return True
+    # When an agent is calling and --yes was passed, skip confirmation
+    if is_agent_caller and yes_override:
+        return False
     return not yes_override
 
 
@@ -785,6 +791,9 @@ def _build_envelope_meta(
             else:
                 warnings.append("This command is deprecated.")
 
+    from tooli.detect import _get_context
+    detection = _get_context()
+
     return EnvelopeMeta(
         tool=_get_tool_id(ctx),
         version=app_version,
@@ -795,6 +804,9 @@ def _build_envelope_meta(
         truncated=truncated,
         next_cursor=next_cursor,
         truncation_message=truncation_message,
+        caller_id=detection.caller_id,
+        caller_version=detection.caller_version,
+        session_id=detection.session_id,
     )
 
 
@@ -1261,6 +1273,12 @@ class TooliCommand(TyperCommand):
         if ctx.command is None:
             return super().get_help(ctx)
 
+        # When an identified agent requests --help, prefer structured output
+        from tooli.detect import _get_context
+        detection = _get_context()
+        if detection.is_agent and detection.identified_via_convention:
+            return self._render_help_agent_output(ctx)
+
         lines = super().get_help(ctx).splitlines()
         self._append_behavior_help_line(lines, ctx.command)
         return "\n".join(lines)
@@ -1373,6 +1391,7 @@ class TooliCommand(TyperCommand):
                 confirmation_label = f"{danger_level} risk"
 
             has_human_in_the_loop = cb_meta.human_in_the_loop
+            from tooli.detect import _get_context as _detect_ctx
             confirm_needed = _needs_human_confirmation(
                 policy=security_policy,
                 is_destructive=True,
@@ -1380,6 +1399,7 @@ class TooliCommand(TyperCommand):
                 has_human_in_the_loop=has_human_in_the_loop,
                 force=ctx.obj.force,
                 yes_override=ctx.obj.yes,
+                is_agent_caller=_detect_ctx().is_agent,
             )
 
             if not confirm_needed:
@@ -1489,6 +1509,14 @@ class TooliCommand(TyperCommand):
                 duration_ms=elapsed_ms,
             )
 
+        from tooli.detect import _get_context as _detect_get_context
+        _detection = _detect_get_context()
+        command_span.set_caller(
+            caller_id=_detection.caller_id,
+            caller_version=_detection.caller_version,
+            session_id=_detection.session_id,
+        )
+
         def _emit_invocation(*, status: str, error_code: str | None = None, exit_code: int | None = None) -> None:
             if invocation_recorder is None:
                 return
@@ -1503,6 +1531,8 @@ class TooliCommand(TyperCommand):
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 error_code=error_code,
                 exit_code=exit_code,
+                caller_id=_detection.caller_id,
+                session_id=_detection.session_id,
             )
 
         try:

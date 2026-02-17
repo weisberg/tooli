@@ -320,6 +320,15 @@ class Tooli(typer.Typer):
                     f.write(content)
                 click.echo(f"Generated {output_path}")
 
+        @self.command(name="detect-context", cls=TooliCommand, hidden=True)  # type: ignore[untyped-decorator]
+        def detect_context() -> dict[str, Any] | str:
+            """Detect the current execution context (human, agent, CI, container)."""
+            from tooli.detect import _format_json, _format_report, detect_execution_context
+
+            ctx = detect_execution_context()
+            import json
+            return json.loads(_format_json(ctx))
+
         @self.command(name="generate-claude-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
         def generate_claude_md_command(
             output_path: str = typer.Option("CLAUDE.md", "--output-path", "--output", help="Output file path"),

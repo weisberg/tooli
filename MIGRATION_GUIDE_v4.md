@@ -99,9 +99,49 @@ your-app generate-skill --target generic-skill --output SKILL.md
 your-app any-command --agent-bootstrap > SKILL.md
 ```
 
+## What's New in v4.1
+
+v4.1 adds the **Caller-Aware Agent Runtime** — a detection system that identifies who is calling your CLI (human, AI agent, CI/CD, container) and adapts behavior accordingly.
+
+### TOOLI_CALLER Convention
+
+Set `TOOLI_CALLER` in the environment to identify your agent with 100% confidence:
+
+```bash
+TOOLI_CALLER=claude-code TOOLI_CALLER_VERSION=1.5.3 mytool list --json
+```
+
+This gives you:
+- Immediate classification (no heuristic probing)
+- Caller metadata in the JSON envelope (`caller_id`, `caller_version`, `session_id`)
+- Adaptive confirmation (agents with `--yes` skip prompts)
+- Structured YAML help from `--help`
+
+### New Modules
+
+| Module | Purpose |
+|---|---|
+| `tooli.detect` | 5-category caller detection (convention + heuristics) |
+
+### New Exports
+
+```python
+from tooli import CallerCategory, ExecutionContext, detect_execution_context
+```
+
+### New Builtin Command
+
+`detect-context` — inspect the current execution context (hidden from `--help`):
+
+```bash
+TOOLI_CALLER=my-agent mytool detect-context --json
+```
+
+See [AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md) for the full integration guide.
+
 ## Breaking Changes
 
-**None.** All v3 APIs continue to work without modification.
+**None.** All v3 and v4.0 APIs continue to work without modification.
 
 ## SKILL.md Format Changes
 

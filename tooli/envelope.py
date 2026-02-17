@@ -17,6 +17,9 @@ class EnvelopeMeta(BaseModel):
     truncated: bool = False
     next_cursor: str | None = None
     truncation_message: str | None = None
+    caller_id: str | None = None
+    caller_version: str | None = None
+    session_id: str | None = None
 
 
 class Envelope(BaseModel):

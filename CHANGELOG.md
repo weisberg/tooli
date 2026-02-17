@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-02-17
+
+### Added
+- **Caller-Aware Agent Runtime**: `TOOLI_CALLER` environment variable convention for explicit agent identification with 100% confidence, zero overhead.
+- **5-category heuristic detection** (`tooli/detect.py`): Identifies callers as `human`, `ai_agent`, `ci_cd`, `container`, or `unknown_automation` via environment variables, process tree inspection, TTY status, and container markers.
+- **`detect-context` builtin command**: Hidden command available on every Tooli app to inspect the current execution context (useful for debugging agent integrations).
+- **Caller metadata in envelope**: `caller_id`, `caller_version`, and `session_id` fields in `EnvelopeMeta`, populated automatically when `TOOLI_CALLER` is set.
+- **OTel caller span attributes**: `tooli.caller_id`, `tooli.caller_version`, `tooli.session_id` attributes on telemetry spans.
+- **InvocationRecord schema v2**: Added `caller_id` and `session_id` fields to invocation recordings.
+- **Manifest `caller_convention`**: Agent manifest now includes `caller_convention` section documenting the `TOOLI_CALLER` protocol.
+- **Adaptive confirmation**: Agents with `--yes` automatically skip destructive command confirmation; without `--yes`, agents receive structured error with recovery suggestion.
+- **Adaptive help formatting**: Convention-identified agents (`TOOLI_CALLER` set) receive structured YAML help from `--help` instead of Rich-formatted text.
+- **Agent Integration section in SKILL.md**: Auto-generated documentation for the `TOOLI_CALLER` convention in every generated SKILL.md.
+- **TOOLI_CALLER hints in CLAUDE.md**: Generated CLAUDE.md files now include guidance on setting `TOOLI_CALLER`.
+- **Well-known caller identifiers**: 21 pre-registered agent identifiers (Claude Code, Cursor, Aider, Devin, LangChain, CrewAI, etc.).
+- **`docs/AGENT_INTEGRATION.md`**: Comprehensive guide for agent developers on using the `TOOLI_CALLER` convention.
+- **100 new tests** across `tests/test_detect.py` (82 tests) and `tests/test_caller_integration.py` (18 tests). Total: 359 tests.
+- Exported `CallerCategory`, `ExecutionContext`, `detect_execution_context` from `tooli` package.
+
+### Changed
+- `_is_agent_mode()` now uses detection module fallback instead of simple TTY check.
+- `InvocationRecord` `SCHEMA_VERSION` bumped from 1 to 2 (additive, not breaking).
+- `_needs_human_confirmation()` accepts `is_agent_caller` parameter for adaptive behavior.
+
 ## [4.0.0] - 2026-02-17
 
 ### Added
@@ -113,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[4.1.0]: https://github.com/weisberg/tooli/releases/tag/v4.1.0
 [4.0.0]: https://github.com/weisberg/tooli/releases/tag/v4.0.0
 [3.0.0]: https://github.com/weisberg/tooli/releases/tag/v3.0.0
 [2.0.0]: https://github.com/weisberg/tooli/releases/tag/v2.0.0

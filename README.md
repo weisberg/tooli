@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v4.0)
+## Current State (v4.1)
 
-Tooli v4.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 259 tests passing across Python 3.10+.
+Tooli v4.1 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 359 tests passing across Python 3.10+.
 
 ### What ships today
 
@@ -46,7 +46,8 @@ Tooli v4.0 is production-ready and published on [PyPI](https://pypi.org/project/
 | **Composition** | `PipeContract` for declaring input/output formats. Auto-inferred composition patterns in SKILL.md |
 | **Scaffolding** | `tooli init` creates new projects with best-practice structure. `--from-typer` migration mode |
 | **Pagination** | Cursor-based with `--limit`, `--cursor`, `--fields`, `--filter` |
-| **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans |
+| **Caller Detection** | `TOOLI_CALLER` convention for agent identification, 5-category heuristic detection, `detect-context` builtin command, caller metadata in envelope/telemetry/recordings |
+| **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans with caller attributes |
 | **Eval** | Metadata coverage reporter, upgrade analyzer, LLM-powered skill roundtrip evaluation |
 | **Extensibility** | Provider system (local, filesystem), transform pipeline (namespace, visibility), tool versioning |
 | **HTTP API** | OpenAPI 3.1 schema generation + Starlette server (experimental) |
@@ -78,7 +79,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="4.0.0",
+    version="4.1.0",
 )
 
 @app.command(
@@ -125,7 +126,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "4.0.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "4.1.0", "duration_ms": 34}
 }
 ```
 
@@ -354,7 +355,8 @@ See the [examples README](examples/README.md) for the full list of 18 apps and u
 
 ## Version History
 
-- **v4.0** (current) -- Agent Skill Platform. Task-oriented SKILL.md, `--agent-bootstrap`, `PipeContract`, composition inference, `tooli init`, metadata coverage, Claude Code integration.
+- **v4.1** (current) -- Caller-Aware Agent Runtime. `TOOLI_CALLER` convention, 5-category heuristic detection, `detect-context` builtin, caller metadata in envelope/telemetry/recordings, adaptive confirmation and help formatting.
+- **v4.0** -- Agent Skill Platform. Task-oriented SKILL.md, `--agent-bootstrap`, `PipeContract`, composition inference, `tooli init`, metadata coverage, Claude Code integration.
 - **v3.0** -- Documentation workflow primitives. `generate-skill --validate`, `--infer-workflows`, token-budget estimation, native backend support.
 - **v2.0** -- Agent-Environment Interface. MCP bridge, orchestration runtime, deferred discovery, token budgets, Python eval mode.
 - **v1.0** -- Core framework. Dual-mode output, structured errors, JSON Schema, MCP server, annotations, pagination, observability.
