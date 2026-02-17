@@ -2,11 +2,11 @@
 
 ## Quick Reference
 
-- **Version**: 3.0.0
+- **Version**: 4.0.0
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory
-- **Tests**: `tests/` directory (159 tests)
+- **Tests**: `tests/` directory (259 tests)
 - **Examples**: `examples/` directory (18 complete apps)
 
 ## Commands
@@ -43,8 +43,19 @@ Tooli extends Typer to produce CLI tools that are human-friendly and machine-con
 - `tooli/auth.py` -- `AuthContext` with scope-based access control
 - `tooli/pagination.py` -- Cursor-based pagination primitives
 
+### v4 Agent Skill Platform Modules
+- `tooli/pipes.py` -- `PipeContract` dataclass for command composition contracts
+- `tooli/bootstrap.py` -- `--agent-bootstrap` flag logic with auto-detection of target environment
+- `tooli/docs/skill_v4.py` -- Task-oriented SKILL.md generator (v4 format)
+- `tooli/docs/claude_md_v2.py` -- Enhanced CLAUDE.md generator
+- `tooli/docs/source_hints.py` -- `# tooli:agent` source-level hint blocks
+- `tooli/init.py` -- `tooli init` project scaffolding
+- `tooli/eval/coverage.py` -- Metadata coverage reporter
+- `tooli/eval/skill_roundtrip.py` -- LLM-powered skill evaluation (opt-in)
+- `tooli/upgrade.py` -- Metadata improvement analyzer
+
 ### Optional Modules
-- `tooli/mcp/` -- MCP server support (requires `tooli[mcp]`)
+- `tooli/mcp/` -- MCP server support (requires `tooli[mcp]`), includes auto-registered `skill://` resources
 - `tooli/api/` -- HTTP API server + OpenAPI generation (requires `tooli[api]`, experimental)
 
 ### Metadata System

@@ -26,24 +26,28 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v2.0)
+## Current State (v4.0)
 
-Tooli v2.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its [PRD](PRD.md), with 159 tests passing across Python 3.10, 3.11, and 3.12.
+Tooli v4.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 259 tests passing across Python 3.10+.
 
 ### What ships today
 
 | Category | Features |
 |---|---|
 | **Output** | Dual-mode (Rich for TTY, JSON/JSONL for agents), auto-detected. Standard envelope: `{ok, result, meta}` |
-| **Errors** | Typed hierarchy (`InputError`, `AuthError`, `StateError`, `ToolRuntimeError`, `InternalError`) with structured suggestions for agent self-correction |
+| **Errors** | Typed hierarchy (`InputError`, `AuthError`, `StateError`, `ToolRuntimeError`, `InternalError`) with structured suggestions and recovery playbooks |
 | **Schemas** | JSON Schema from type hints, compatible with MCP `inputSchema` and OpenAI function-calling. `$ref` dereferencing for broad client compatibility |
-| **MCP** | Serve any Tooli app as an MCP tool server over stdio, HTTP, or SSE -- zero extra code |
+| **MCP** | Serve any Tooli app as an MCP tool server over stdio, HTTP, or SSE -- zero extra code. Auto-registered `skill://` resources |
 | **Input** | `StdinOr[T]` unifies files, URLs, and piped stdin. `SecretInput[T]` with automatic redaction |
 | **Orchestration** | Hidden `orchestrate run` command for deterministic multi-tool plan execution (`JSON` / `python` payloads) |
 | **Safety** | Behavioral annotations (`ReadOnly`, `Destructive`, `Idempotent`, `OpenWorld`), `@dry_run_support`, security policies (OFF/STANDARD/STRICT), auth scopes |
-| **Docs** | Auto-generated SKILL.md, llms.txt, Unix man pages -- always in sync with code |
+| **Docs** | Task-oriented SKILL.md, enhanced CLAUDE.md, llms.txt, Unix man pages -- always in sync with code |
+| **Agent Bootstrap** | `--agent-bootstrap` flag on any command produces a deployable SKILL.md. `generate-skill --target` for generic, Claude, or Claude Code formats |
+| **Composition** | `PipeContract` for declaring input/output formats. Auto-inferred composition patterns in SKILL.md |
+| **Scaffolding** | `tooli init` creates new projects with best-practice structure. `--from-typer` migration mode |
 | **Pagination** | Cursor-based with `--limit`, `--cursor`, `--fields`, `--filter` |
 | **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans |
+| **Eval** | Metadata coverage reporter, upgrade analyzer, LLM-powered skill roundtrip evaluation |
 | **Extensibility** | Provider system (local, filesystem), transform pipeline (namespace, visibility), tool versioning |
 | **HTTP API** | OpenAPI 3.1 schema generation + Starlette server (experimental) |
 
@@ -74,7 +78,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="2.0.0",
+    version="4.0.0",
 )
 
 @app.command(
@@ -121,7 +125,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "2.0.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "4.0.0", "duration_ms": 34}
 }
 ```
 
@@ -251,10 +255,15 @@ $ file-tools deploy production --dry-run --json
 ## Auto-Generated Documentation
 
 ```bash
-# Agent-readable skill documentation
+# Agent-readable skill documentation (v4 task-oriented format)
 $ file-tools generate-skill > SKILL.md
+$ file-tools generate-skill --target claude-code > SKILL.md   # Claude Code optimized
+$ file-tools generate-skill --target claude-skill > SKILL.md  # Claude model optimized
 $ file-tools generate-skill --format manifest > agent-manifest.json
 $ file-tools generate-skill --format claude-md > CLAUDE.md
+
+# Bootstrap: any command can produce a deployable SKILL.md
+$ file-tools find-files --agent-bootstrap > SKILL.md
 
 # LLM-friendly docs (llms.txt standard)
 $ file-tools docs llms
@@ -270,7 +279,7 @@ Useful validation and automation flows:
 - `file-tools generate-skill --infer-workflows` auto-derives simple workflow examples.
 - `file-tools eval agent-test` runs an end-to-end contract validation for schema, envelope, and error handling.
 
-Migration guidance for v3: see [`MIGRATION_GUIDE_v3.md`](MIGRATION_GUIDE_v3.md).
+Migration guidance: see [`MIGRATION_GUIDE_v4.md`](MIGRATION_GUIDE_v4.md) (v3 to v4) or [`MIGRATION_GUIDE_v3.md`](MIGRATION_GUIDE_v3.md) (v2 to v3).
 
 ---
 
@@ -292,6 +301,7 @@ Every Tooli command automatically gets:
 --schema           Print JSON Schema and exit
 --response-format  concise|detailed
 --help-agent       Token-optimized help for agents
+--agent-bootstrap  Generate deployable SKILL.md and exit
 ```
 
 ---
@@ -342,76 +352,14 @@ See the [examples README](examples/README.md) for the full list of 18 apps and u
 
 ---
 
-## Roadmap to v2.0
+## Version History
 
-Tooli v1.0 solves the core problem: making CLIs that work equally well for humans and agents. v2.0 will focus on **multi-agent ecosystems**, **production hardening**, and **ecosystem integration**.
+- **v4.0** (current) -- Agent Skill Platform. Task-oriented SKILL.md, `--agent-bootstrap`, `PipeContract`, composition inference, `tooli init`, metadata coverage, Claude Code integration.
+- **v3.0** -- Documentation workflow primitives. `generate-skill --validate`, `--infer-workflows`, token-budget estimation, native backend support.
+- **v2.0** -- Agent-Environment Interface. MCP bridge, orchestration runtime, deferred discovery, token budgets, Python eval mode.
+- **v1.0** -- Core framework. Dual-mode output, structured errors, JSON Schema, MCP server, annotations, pagination, observability.
 
-### Streaming and async-first
-
-v1.0 commands are synchronous and return complete results. v2.0 will add first-class support for async commands and streaming output -- critical for long-running operations where agents need incremental progress rather than waiting for a full result.
-
-- `async def` commands with native `asyncio` support
-- Streaming JSONL output for commands that produce results incrementally
-- Server-Sent Events for real-time progress reporting through MCP and HTTP transports
-- Cancellation propagation -- when an agent cancels a tool call, the underlying async task is cancelled cleanly
-
-### Tool composition and pipelines
-
-Today, each Tooli command is an isolated unit. v2.0 will enable composing commands into pipelines where the output of one feeds the input of the next, with type safety preserved across the chain.
-
-- Typed pipe operator: `app.pipe(scan, filter, transform)` with schema validation between stages
-- Pipeline schema export -- agents see the full pipeline as a single compound tool
-- Partial results on pipeline failure -- if stage 3 of 5 fails, return what succeeded plus the error
-
-### Multi-tool orchestration
-
-Agents often need to coordinate multiple tools in a session. v2.0 will support stateful tool sessions where context carries across invocations.
-
-- Session context -- tools within a session share state (e.g., a database connection, a working directory, accumulated results)
-- Transaction boundaries -- group destructive operations into atomic units that roll back on failure
-- Tool dependency declarations -- `@app.command(requires=["auth.login"])` so agents know prerequisites
-
-### Plugin ecosystem
-
-v1.0's provider system supports local functions and filesystem modules. v2.0 will expand this to a full plugin architecture.
-
-- `pip install tooli-plugin-*` auto-discovery via entry points
-- Remote tool providers -- import tools from running MCP servers or HTTP endpoints
-- Tool marketplace registry -- publish and discover Tooli tools
-
-### Production observability
-
-v1.0 has opt-in telemetry and invocation recording. v2.0 will add production-grade observability.
-
-- Structured audit logs for compliance (who called what, when, with what arguments)
-- Cost tracking per tool invocation (wall time, tokens consumed by the calling agent, API calls made)
-- Rate limiting and quota management -- per-tool, per-agent, configurable
-- Health check endpoints for deployed tool servers
-
-### Smarter error recovery
-
-v1.0 errors include static suggestions. v2.0 will make error recovery dynamic and context-aware.
-
-- Error suggestion functions -- instead of static strings, compute suggestions based on the actual error context and available state
-- Automatic retry with suggested modifications -- when `is_retryable` is true and a concrete `example` is provided, the framework can retry automatically
-- Error aggregation -- batch operations report all failures at once instead of stopping at the first
-
-### Enhanced security model
-
-- Capability-based permissions -- tools declare the capabilities they need (`fs:read`, `net:outbound`, `env:read`), and the runtime enforces them
-- Sandboxed execution -- run tool commands in isolated environments with restricted filesystem and network access
-- Signed tool manifests -- verify tool integrity before execution in zero-trust agent environments
-
-### Developer experience
-
-- `tooli init` scaffolding command -- generate a new Tooli project with best-practice structure
-- `tooli test` contract runner -- validate that your tool's schema, output, and error contracts haven't broken
-- Hot-reload development server -- edit a command, see the change immediately in MCP clients
-- Visual tool inspector -- browser-based UI to explore schemas, test commands, and view invocation history
-
-### Timeline
-
-The v2.0 roadmap is being delivered incrementally across minor releases (v2.1, v2.2, ...) with backward-compatible additions. Breaking changes will be staged intentionally and released as explicit milestones.
+See [CHANGELOG.md](CHANGELOG.md) for full details and [MIGRATION_GUIDE_v4.md](MIGRATION_GUIDE_v4.md) for upgrade steps.
 
 ---
 
