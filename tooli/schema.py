@@ -23,6 +23,9 @@ class ToolSchema(BaseModel):
     examples: list[dict[str, Any]] = Field(default_factory=list)
     deprecated: bool = False
     deprecated_message: str | None = None
+    capabilities: list[str] = Field(default_factory=list)
+    handoffs: list[dict[str, str]] = Field(default_factory=list)
+    delegation_hint: str | None = None
 
 
 def _dereference_refs(schema: dict[str, Any], root_schema: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -159,4 +162,7 @@ def generate_tool_schema(
         deprecated=meta.deprecated,
         deprecated_message=meta.deprecated_message,
         auth=required_scopes or list(meta.auth),
+        capabilities=list(meta.capabilities),
+        handoffs=list(meta.handoffs),
+        delegation_hint=meta.delegation_hint,
     )

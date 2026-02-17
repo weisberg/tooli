@@ -426,6 +426,10 @@ class SkillV4Generator:
             lines.append("**Deprecated**: `true`")
             if meta.deprecated_message:
                 lines.append(f"**Deprecation Message**: {meta.deprecated_message}")
+        if meta.capabilities:
+            lines.append(f"**Capabilities**: `{', '.join(meta.capabilities)}`")
+        if meta.delegation_hint:
+            lines.append(f"**Delegation**: {meta.delegation_hint}")
         lines.append("")
 
         # Parameters
@@ -607,7 +611,19 @@ class SkillV4Generator:
                 ]
                 patterns.append((f"Paginate {tool_def.name}", cmds))
 
-        # 5) Inferred workflows if requested
+        # 5) Explicit handoffs
+        for tool_def in tools:
+            meta = get_command_meta(tool_def.callback)
+            for handoff in meta.handoffs:
+                target = handoff.get("command", "")
+                when = handoff.get("when", "")
+                if target:
+                    label = f"Handoff: {tool_def.name} \u2192 {target}"
+                    cmds = [f"# {when}" if when else f"# After {tool_def.name}"]
+                    cmds.append(f"{self._tool_name} {target} --json")
+                    patterns.append((label, cmds))
+
+        # 6) Inferred workflows if requested
         if self.infer_workflows:
             patterns.extend(self._infer_piped_workflows(tools))
 

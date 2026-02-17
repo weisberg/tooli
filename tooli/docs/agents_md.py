@@ -159,6 +159,29 @@ def generate_agents_md(app: Any) -> str:
             lines.append(f"**Behavior:** {', '.join(labels)}")
             lines.append("")
 
+        # Capabilities
+        meta = get_command_meta(callback)
+        if meta.capabilities:
+            lines.append(f"**Capabilities:** `{', '.join(meta.capabilities)}`")
+            lines.append("")
+
+        # Delegation hint
+        if meta.delegation_hint:
+            lines.append(f"**Delegation:** {meta.delegation_hint}")
+            lines.append("")
+
+        # Handoffs
+        if meta.handoffs:
+            lines.append("**Next steps:**")
+            for handoff in meta.handoffs:
+                target = handoff.get("command", "")
+                when = handoff.get("when", "")
+                if target and when:
+                    lines.append(f"- `{target}`: {when}")
+                elif target:
+                    lines.append(f"- `{target}`")
+            lines.append("")
+
     # Output Format
     lines.extend([
         "## Output Format",

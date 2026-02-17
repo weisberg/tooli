@@ -66,6 +66,7 @@ class TooliError:
             code=self.code,
             suggestion=suggestion_obj,
             details=self.details if self.details else None,
+            field=self.field,
         )
 
     @classmethod
@@ -80,7 +81,7 @@ class TooliError:
             message=err.message,
             suggestion=suggestion_dict,
             is_retryable=err.is_retryable,
-            field=field,
+            field=field or err.field,
             details=err.details,
         )
 
