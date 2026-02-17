@@ -14,6 +14,7 @@ from tooli.detect import CallerCategory, ExecutionContext, detect_execution_cont
 from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
 from tooli.input import SecretInput, StdinOr
 from tooli.pipes import PipeContract
+from tooli.python_api import TooliError, TooliResult
 from tooli.versioning import VersionFilter, compare_versions
 
 try:
@@ -48,6 +49,8 @@ __all__ = [
     "CallerCategory",
     "ExecutionContext",
     "detect_execution_context",
+    "TooliResult",
+    "TooliError",
 ]
 
 if TYPE_CHECKING:
