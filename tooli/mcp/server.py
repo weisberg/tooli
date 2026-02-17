@@ -208,6 +208,36 @@ def _register_prompt(mcp: Any, callback: Callable[..., Any], *, name: str, descr
         prompt_adder(name)(handler)
 
 
+def _register_skill_resources(mcp: Any, app: Tooli) -> None:
+    """Auto-register skill://manifest and skill://documentation resources."""
+    import json
+
+    def _manifest_handler() -> str:
+        from tooli.manifest import generate_agent_manifest
+        return json.dumps(generate_agent_manifest(app), indent=2)
+
+    def _documentation_handler() -> str:
+        from tooli.docs.skill_v4 import generate_skill_md
+        return generate_skill_md(app)
+
+    _register_resource(
+        mcp=mcp,
+        callback=_manifest_handler,
+        uri="skill://manifest",
+        name="skill-manifest",
+        description="Machine-readable agent manifest for this tool.",
+        mime_type="application/json",
+    )
+    _register_resource(
+        mcp=mcp,
+        callback=_documentation_handler,
+        uri="skill://documentation",
+        name="skill-documentation",
+        description="Complete SKILL.md documentation for this tool.",
+        mime_type="text/markdown",
+    )
+
+
 def serve_mcp(
     app: Tooli,
     transport: str = "stdio",
@@ -279,6 +309,9 @@ def serve_mcp(
             description=prompt_meta.description,
             hidden=prompt_meta.hidden,
         )
+
+    # Auto-register skill resources
+    _register_skill_resources(mcp, app)
 
     # Strict stdout discipline for stdio transport
     if transport == "stdio":

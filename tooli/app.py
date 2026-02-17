@@ -263,7 +263,13 @@ class Tooli(typer.Typer):
             format_: str = typer.Option(
                 "claude-skill",
                 "--format",
-                help="Output format: skill|manifest|claude-skill",
+                help="Output format: skill|manifest|claude-skill|claude-md",
+                show_default=True,
+            ),
+            target: str = typer.Option(
+                "generic-skill",
+                "--target",
+                help="Target format: generic-skill|claude-skill|claude-code",
                 show_default=True,
             ),
             validate: bool = typer.Option(False, help="Validate generated SKILL content before writing."),
@@ -272,26 +278,29 @@ class Tooli(typer.Typer):
             """Generate SKILL.md for this application."""
             import click
 
-            from tooli.docs.skill import generate_skill_md, validate_skill_doc
             from tooli.docs.claude_md import generate_claude_md
+            from tooli.docs.skill_v4 import generate_skill_md as generate_skill_v4
+            from tooli.docs.skill_v4 import validate_skill_doc
             from tooli.manifest import manifest_as_json
             if detail_level not in {"auto", "summary", "full"}:
                 raise click.BadParameter("detail_level must be auto, summary, or full.")
             if format_ not in {"skill", "manifest", "claude-skill", "claude-md"}:
                 raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
+            if target not in {"generic-skill", "claude-skill", "claude-code"}:
+                raise click.BadParameter("target must be generic-skill, claude-skill, or claude-code.")
 
             if format_ == "manifest":
                 content = manifest_as_json(self)
             elif format_ in {"skill", "claude-skill"}:
-                content = generate_skill_md(
+                content = generate_skill_v4(
                     self,
                     detail_level=detail_level,
                     infer_workflows=infer_workflows,
+                    target=target,
                 )
             elif format_ == "claude-md":
                 content = generate_claude_md(self)
             else:
-                # Unreachable due prior validation, retained for defensive parity.
                 raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
 
             if validate and format_ != "manifest":
@@ -559,6 +568,12 @@ class Tooli(typer.Typer):
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
+        pipe_input: dict[str, Any] | None = None,
+        pipe_output: dict[str, Any] | None = None,
+        when_to_use: str | None = None,
+        expected_outputs: list[dict[str, Any]] | None = None,
+        recovery_playbooks: dict[str, list[str]] | None = None,
+        task_group: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Register a command using Tooli defaults and metadata.
@@ -660,6 +675,12 @@ class Tooli(typer.Typer):
                 deprecated=deprecated,
                 deprecated_message=deprecated_message,
                 secret_params=secret_params,
+                pipe_input=pipe_input,
+                pipe_output=pipe_output,
+                when_to_use=when_to_use,
+                expected_outputs=expected_outputs or [],
+                recovery_playbooks=recovery_playbooks or {},
+                task_group=task_group,
             )
             func.__tooli_meta__ = meta
 

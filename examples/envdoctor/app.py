@@ -22,6 +22,9 @@ app = Tooli(
     examples=[
         {"args": ["check"], "description": "Run diagnostic suite"},
     ],
+    when_to_use="Diagnose local environment issues before running builds or deployments",
+    task_group="Analysis",
+    pipe_output={"format": "json"},
 )
 def check(
     verbose: Annotated[bool, Option(help="Show detailed check info")] = False,

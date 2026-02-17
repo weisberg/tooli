@@ -12,6 +12,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in optional backend 
 from tooli.app_native import Tooli as _NativeTooli
 from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
 from tooli.input import SecretInput, StdinOr
+from tooli.pipes import PipeContract
 from tooli.versioning import VersionFilter, compare_versions
 
 try:
@@ -29,7 +30,7 @@ class Tooli:
         return _TyperTooli(*args, backend=backend, **kwargs)
 
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
 __all__ = [
     "Annotated",
     "Argument",
@@ -42,6 +43,7 @@ __all__ = [
     "record_dry_action",
     "VersionFilter",
     "compare_versions",
+    "PipeContract",
 ]
 
 if TYPE_CHECKING:
