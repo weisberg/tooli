@@ -4,7 +4,7 @@
 
 **Version**: 3.0
  **Author**: Brian Weisberg
- **Status**: Draft
+ **Status**: Implemented. Superseded by [PRD_v4.md](PRD_v4.md). Current release: v4.0.0.
  **Date**: February 2026
  **Supersedes**: PRD.md (v2.0)
 

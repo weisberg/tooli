@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-02-17
+
+### Added
+- **Agent Skill Platform**: Task-oriented SKILL.md generation with commands grouped by `task_group`, "When to use" guidance, and "If Something Goes Wrong" recovery sections.
+- **`--agent-bootstrap` global flag**: Any command can produce a deployable SKILL.md with auto-detection of target environment (Claude Code, Claude, or generic agent).
+- **`PipeContract` type** (`tooli/pipes.py`): Declare input/output formats for command composition. Auto-inferred composition patterns in SKILL.md (pipe chains, ReadOnly→Destructive preview pairs, dry-run patterns, pagination chains).
+- **`generate-skill --target`**: Target-specific SKILL.md output — `generic-skill`, `claude-skill`, or `claude-code`.
+- **`tooli init` scaffolding** (`tooli/init.py`): Create new projects with pyproject.toml, app.py, tests, SKILL.md, CLAUDE.md, README.md. Includes `--from-typer` for Typer migration.
+- **Source-level agent hints** (`tooli/docs/source_hints.py`): Generate and insert `# tooli:agent ... # tooli:end` metadata blocks in source files.
+- **Enhanced CLAUDE.md generator** (`tooli/docs/claude_md_v2.py`): Build & Test, Architecture, Agent Invocation, Key Patterns, Development Workflow sections.
+- **Metadata coverage reporter** (`tooli/eval/coverage.py`): Reports missing examples, output schemas, error codes, token estimates, and warnings.
+- **Upgrade analyzer** (`tooli/upgrade.py`): Analyzes apps and suggests metadata improvements with optional code stub generation.
+- **LLM-powered skill evaluation** (`tooli/eval/skill_roundtrip.py`): Generates SKILL.md, feeds to LLM, verifies invocations. Opt-in, requires API key.
+- **MCP skill resources**: Auto-registered `skill://manifest` and `skill://documentation` resources on MCP server startup.
+- **New `CommandMeta` fields**: `pipe_input`, `pipe_output`, `when_to_use`, `expected_outputs`, `recovery_playbooks`, `task_group`.
+- **73 new tests** across 7 test files (259 total).
+- **6 example apps updated** with v4 metadata: docq, gitsum, envdoctor, taskr, logslicer, repolens.
+- `MIGRATION_GUIDE_v4.md` with v3→v4 migration steps.
+
+### Changed
+- `generate-skill` builtin now uses the v4 generator by default.
+- Manifest output includes `pipe_input`, `pipe_output`, `task_group`, `when_to_use` fields.
+- `PipeContract` exported from `tooli.__init__`.
+
 ## [3.0.0] - 2026-02-16
 
 ### Added
@@ -89,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[4.0.0]: https://github.com/weisberg/tooli/releases/tag/v4.0.0
+[3.0.0]: https://github.com/weisberg/tooli/releases/tag/v3.0.0
 [2.0.0]: https://github.com/weisberg/tooli/releases/tag/v2.0.0
 [1.2.0]: https://github.com/weisberg/tooli/releases/tag/v1.2.0
 [1.1.0]: https://github.com/weisberg/tooli/releases/tag/v1.1.0

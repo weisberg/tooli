@@ -2,7 +2,7 @@
 
 **Version:** 2.0
 **Date:** 2026-02-16
-**Status:** Implemented (v2.0.x), with v2 roadmap planned.
+**Status:** Implemented. Superseded by [PRD_v3.md](PRD_v3.md) and [PRD_v4.md](PRD_v4.md). Current release: v4.0.0.
 
 ## 1.x Milestone Progress
 

@@ -43,7 +43,7 @@ from typing import Annotated
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Idempotent, ReadOnly
 
-app = Tooli(name="file-tools", description="File utilities", version="2.0.0")
+app = Tooli(name="file-tools", description="File utilities", version="4.0.0")
 
 
 @app.command(annotations=ReadOnly | Idempotent, paginated=True, list_processing=True)
@@ -108,18 +108,20 @@ When a command fails, Tooli emits a structured error with an actionable suggesti
 }
 ```
 
-## Schemas, Docs, and Orchestration
+## Schemas, Docs, and Agent Bootstrap
 
 Tooli can generate tool schemas and agent-facing docs directly from type hints and metadata:
 
 ```bash
 python file_tools.py find-files --schema
 python file_tools.py generate-skill > SKILL.md
+python file_tools.py generate-skill --target claude-code > SKILL.md
+python file_tools.py find-files --agent-bootstrap > SKILL.md
 python file_tools.py docs llms
 python file_tools.py docs man
 ```
 
-For local automation, hidden built-ins also include `orchestrate run` for JSON/Python plan execution across multiple Tooli commands.
+v4 generates task-oriented SKILL.md with "When to use" guidance, recovery playbooks, composition patterns, and target-specific formatting (generic, Claude, Claude Code).
 
 Run as an MCP server (one tool per command):
 
