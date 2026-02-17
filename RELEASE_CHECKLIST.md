@@ -15,7 +15,7 @@ This checklist tracks repeatable release hygiene tasks for Tooli.
 
 1. Run `ruff check .` (new files should be clean).
 2. Run `mypy tooli`.
-3. Run `pytest tests` (259 tests passing as of v4.0.0).
+3. Run `pytest tests` (359 tests passing as of v4.1.0).
 4. Confirm `CHANGELOG.md` includes the target version and release date.
 5. Confirm `pyproject.toml` version matches.
 6. Confirm `tooli/__init__.py` `__version__` matches.
@@ -33,6 +33,7 @@ This checklist tracks repeatable release hygiene tasks for Tooli.
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 4.1.0 | 2026-02-17 | Caller-Aware Agent Runtime |
 | 4.0.0 | 2026-02-17 | Agent Skill Platform |
 | 3.0.0 | 2026-02-16 | Documentation workflow primitives |
 | 2.0.0 | 2026-02-16 | Agent-Environment Interface |

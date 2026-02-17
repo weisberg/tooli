@@ -43,7 +43,7 @@ from typing import Annotated
 from tooli import Argument, Option, Tooli
 from tooli.annotations import Idempotent, ReadOnly
 
-app = Tooli(name="file-tools", description="File utilities", version="4.0.0")
+app = Tooli(name="file-tools", description="File utilities", version="4.1.0")
 
 
 @app.command(annotations=ReadOnly | Idempotent, paginated=True, list_processing=True)

@@ -36,6 +36,15 @@ class _NoopCommandSpan:
     def set_arguments(self, arguments: dict[str, Any] | None) -> None:
         del arguments
 
+    def set_caller(
+        self,
+        *,
+        caller_id: str | None = None,
+        caller_version: str | None = None,
+        session_id: str | None = None,
+    ) -> None:
+        del caller_id, caller_version, session_id
+
     def set_outcome(self, *, exit_code: int, error_category: str | None, duration_ms: int) -> None:
         del exit_code, error_category, duration_ms
 
@@ -48,6 +57,20 @@ class _ActiveCommandSpan:
 
     def set_arguments(self, arguments: dict[str, Any] | None) -> None:
         self._span.set_attribute("tooli.arguments", _serialize_arguments(arguments))
+
+    def set_caller(
+        self,
+        *,
+        caller_id: str | None = None,
+        caller_version: str | None = None,
+        session_id: str | None = None,
+    ) -> None:
+        if caller_id is not None:
+            self._span.set_attribute("tooli.caller_id", caller_id)
+        if caller_version is not None:
+            self._span.set_attribute("tooli.caller_version", caller_version)
+        if session_id is not None:
+            self._span.set_attribute("tooli.session_id", session_id)
 
     def set_outcome(self, *, exit_code: int, error_category: str | None, duration_ms: int) -> None:
         if self._ended:

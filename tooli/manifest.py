@@ -112,7 +112,13 @@ def generate_agent_manifest(app: "Tooli") -> dict[str, Any]:
         "manifest_version": "3.0",
         "tool": tool,
         "commands": commands,
-        "global_flags": GLOBAL_FLAGS,
+        "global_flags": {**GLOBAL_FLAGS, "--agent-bootstrap": "Generate deployable SKILL.md and exit."},
+        "caller_convention": {
+            "env_var": "TOOLI_CALLER",
+            "version_var": "TOOLI_CALLER_VERSION",
+            "session_var": "TOOLI_SESSION_ID",
+            "detect_command": "detect-context",
+        },
         "envelope_schema": {
             "success": {
                 "ok": True,

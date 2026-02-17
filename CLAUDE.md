@@ -2,11 +2,11 @@
 
 ## Quick Reference
 
-- **Version**: 4.0.0
+- **Version**: 4.1.0
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory
-- **Tests**: `tests/` directory (259 tests)
+- **Tests**: `tests/` directory (359 tests)
 - **Examples**: `examples/` directory (18 complete apps)
 
 ## Commands
@@ -53,6 +53,12 @@ Tooli extends Typer to produce CLI tools that are human-friendly and machine-con
 - `tooli/eval/coverage.py` -- Metadata coverage reporter
 - `tooli/eval/skill_roundtrip.py` -- LLM-powered skill evaluation (opt-in)
 - `tooli/upgrade.py` -- Metadata improvement analyzer
+
+### v4.1 Caller-Aware Agent Runtime Modules
+- `tooli/detect.py` -- Caller detection: `CallerCategory` enum, `ExecutionContext`, `detect_execution_context()`, heuristic + convention-based detection
+- `tooli/envelope.py` -- Now includes `caller_id`, `caller_version`, `session_id` in `EnvelopeMeta`
+- `tooli/telemetry.py` -- OTel span caller attributes via `set_caller()`
+- `tooli/eval/recorder.py` -- `InvocationRecord` schema v2 with `caller_id`/`session_id` fields
 
 ### Optional Modules
 - `tooli/mcp/` -- MCP server support (requires `tooli[mcp]`), includes auto-registered `skill://` resources

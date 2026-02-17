@@ -62,9 +62,16 @@ def generate_claude_md_v2(app: Any) -> str:
     lines.extend([
         "## Agent Invocation",
         "",
+        "Set `TOOLI_CALLER` to identify your agent before invoking commands:",
+        "",
+        f"```bash\nTOOLI_CALLER=claude-code {app_name} <command> --json\n```",
+        "",
+        "This gives the tool 100% confidence in agent detection (no heuristic probing),",
+        "and populates `caller_id`, `caller_version`, `session_id` in the envelope `meta`.",
+        "",
         "Use `--json` for all agent invocations. The envelope format is:",
         "",
-        '```json\n{"ok": true, "result": ..., "meta": {"tool": "...", "version": "..."}}\n```',
+        '```json\n{"ok": true, "result": ..., "meta": {"tool": "...", "version": "...", "caller_id": "..."}}\n```',
         "",
     ])
 
