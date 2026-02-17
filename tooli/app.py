@@ -343,6 +343,67 @@ class Tooli(typer.Typer):
                 f.write(content)
             click.echo(f"Generated {output_path}")
 
+        @self.command(name="export", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
+        def export_command(
+            target: Annotated[
+                str,
+                typer.Option(
+                    ...,
+                    "--target",
+                    help="Export target: openai|langchain|adk|python",
+                    show_default=False,
+                ),
+            ],
+            command: Annotated[
+                str | None,
+                typer.Option(
+                    None,
+                    "--command",
+                    help="Export only a single command by name.",
+                ),
+            ] = None,
+            mode: Annotated[
+                str,
+                typer.Option(
+                    "subprocess",
+                    "--mode",
+                    help="Export mode: subprocess|import",
+                ),
+            ] = "subprocess",
+        ) -> None:
+            """Generate framework-specific integration code."""
+            import click
+
+            from tooli.export import ExportMode, ExportTarget, generate_export
+
+            try:
+                parsed_target = ExportTarget(target)
+            except ValueError as exc:
+                raise click.BadParameter(
+                    "target must be one of: openai, langchain, adk, python.",
+                    param_hint="--target",
+                ) from exc
+
+            try:
+                parsed_mode = ExportMode(mode)
+            except ValueError as exc:
+                raise click.BadParameter(
+                    "mode must be one of: subprocess, import.",
+                    param_hint="--mode",
+                ) from exc
+
+            try:
+                click.echo(
+                    generate_export(
+                        self,
+                        target=parsed_target,
+                        command=command,
+                        mode=parsed_mode,
+                    )
+                )
+            except ValueError as exc:
+                raise click.BadParameter(str(exc), param_hint="--command") from exc
+
         # MCP group
         mcp_app = typer.Typer(name="mcp", help="MCP server utilities", hidden=True)
         self.add_typer(mcp_app)
