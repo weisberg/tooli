@@ -105,6 +105,12 @@ def generate_agent_manifest(app: "Tooli") -> dict[str, Any]:
             entry["task_group"] = meta.task_group
         if meta.when_to_use is not None:
             entry["when_to_use"] = meta.when_to_use
+        if meta.capabilities:
+            entry["capabilities"] = meta.capabilities
+        if meta.handoffs:
+            entry["handoffs"] = meta.handoffs
+        if meta.delegation_hint is not None:
+            entry["delegation_hint"] = meta.delegation_hint
         commands.append(entry)
         error_entries.extend(_command_error_catalog_entries(tool_def.name, meta))
 
@@ -139,6 +145,7 @@ def generate_agent_manifest(app: "Tooli") -> dict[str, Any]:
                     "code": "E0000",
                     "category": "runtime",
                     "message": "See command output for details.",
+                    "field": None,
                 },
                 "meta": {
                     "tool": f"{name}.<command>",

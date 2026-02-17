@@ -60,6 +60,11 @@ class CommandMeta:
     recovery_playbooks: dict[str, list[str]] = field(default_factory=dict)
     task_group: str | None = None
 
+    # v5 fields
+    capabilities: list[str] = field(default_factory=list)
+    handoffs: list[dict[str, str]] = field(default_factory=list)
+    delegation_hint: str | None = None
+
 
 def get_command_meta(callback: Callable[..., Any] | None) -> CommandMeta:
     """Retrieve CommandMeta from a callback, with safe defaults."""

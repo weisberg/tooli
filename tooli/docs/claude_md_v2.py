@@ -84,17 +84,19 @@ def generate_claude_md_v2(app: Any) -> str:
         labels = _annotation_labels(tool_def.callback)
         label_str = f" [{', '.join(labels)}]" if labels else ""
 
+        cap_str = f" needs:{','.join(meta.capabilities)}" if meta.capabilities else ""
+
         examples = meta.examples
         if examples:
             first = examples[0]
             args = first.get("args", [])
             if isinstance(args, list):
                 arg_text = " ".join(str(a) for a in args if a is not None)
-                lines.append(f"- `{app_name} {tool_def.name} {arg_text}`{label_str}")
+                lines.append(f"- `{app_name} {tool_def.name} {arg_text}`{label_str}{cap_str}")
             else:
-                lines.append(f"- `{app_name} {tool_def.name}`{label_str}")
+                lines.append(f"- `{app_name} {tool_def.name}`{label_str}{cap_str}")
         else:
-            lines.append(f"- `{app_name} {tool_def.name}`{label_str}")
+            lines.append(f"- `{app_name} {tool_def.name}`{label_str}{cap_str}")
 
     lines.append("")
 

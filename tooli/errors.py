@@ -48,6 +48,7 @@ class ToolError(Exception):
         is_retryable: bool = False,
         details: dict[str, Any] | None = None,
         exit_code: ExitCode | int | None = None,
+        field: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -56,6 +57,7 @@ class ToolError(Exception):
         self.suggestion = suggestion
         self.is_retryable = is_retryable
         self.details = details or {}
+        self.field = field
         resolved_exit_code = exit_code if exit_code is not None else _default_exit_code(category)
         if isinstance(resolved_exit_code, ExitCode):
             self.exit_code = int(resolved_exit_code)
@@ -63,7 +65,7 @@ class ToolError(Exception):
             self.exit_code = resolved_exit_code
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "message": self.message,
             "code": self.code,
             "category": self.category.value,
@@ -71,6 +73,9 @@ class ToolError(Exception):
             "is_retryable": self.is_retryable,
             "details": self.details,
         }
+        if self.field is not None:
+            result["field"] = self.field
+        return result
 
 
 class InputError(ToolError):
@@ -82,6 +87,7 @@ class InputError(ToolError):
         code: str = "E1000",
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
+        field: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -90,6 +96,7 @@ class InputError(ToolError):
             suggestion=suggestion,
             details=details,
             exit_code=ExitCode.INVALID_INPUT,
+            field=field,
         )
 
 
@@ -102,6 +109,7 @@ class AuthError(ToolError):
         code: str = "E2000",
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
+        field: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -110,6 +118,7 @@ class AuthError(ToolError):
             suggestion=suggestion,
             details=details,
             exit_code=ExitCode.AUTH_DENIED,
+            field=field,
         )
 
 
@@ -123,6 +132,7 @@ class StateError(ToolError):
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
         exit_code: ExitCode | int = ExitCode.STATE_ERROR,
+        field: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -131,6 +141,7 @@ class StateError(ToolError):
             suggestion=suggestion,
             details=details,
             exit_code=exit_code,
+            field=field,
         )
 
 
@@ -144,6 +155,7 @@ class ToolRuntimeError(ToolError):
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
         exit_code: int = 70,
+        field: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -152,6 +164,7 @@ class ToolRuntimeError(ToolError):
             suggestion=suggestion,
             details=details,
             exit_code=exit_code,
+            field=field,
         )
 
 
@@ -164,6 +177,7 @@ class InternalError(ToolError):
         code: str = "E5000",
         suggestion: Suggestion | None = None,
         details: dict[str, Any] | None = None,
+        field: str | None = None,
     ) -> None:
         super().__init__(
             message,
@@ -172,4 +186,5 @@ class InternalError(ToolError):
             suggestion=suggestion,
             details=details,
             exit_code=ExitCode.INTERNAL_ERROR,
+            field=field,
         )

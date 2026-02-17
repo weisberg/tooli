@@ -998,6 +998,9 @@ class Tooli(typer.Typer):
         expected_outputs: list[dict[str, Any]] | None = None,
         recovery_playbooks: dict[str, list[str]] | None = None,
         task_group: str | None = None,
+        capabilities: list[str] | None = None,
+        handoffs: list[dict[str, str]] | None = None,
+        delegation_hint: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Register a command using Tooli defaults and metadata.
@@ -1105,6 +1108,9 @@ class Tooli(typer.Typer):
                 expected_outputs=expected_outputs or [],
                 recovery_playbooks=recovery_playbooks or {},
                 task_group=task_group,
+                capabilities=capabilities or [],
+                handoffs=handoffs or [],
+                delegation_hint=delegation_hint,
             )
             func.__tooli_meta__ = meta
 
