@@ -428,8 +428,98 @@ class Tooli:
             internal_err = InternalError(message=f"Internal error: {e}")
             return TooliResult.from_tool_error(internal_err, meta=_build_meta(duration_ms))
 
+    async def acall(self, command_name: str, **kwargs: Any) -> Any:
+        """Async variant of ``call()``.
+
+        If the command function is a coroutine, it is awaited directly.
+        Otherwise the synchronous function is run via ``asyncio.to_thread()``.
+        """
+        import asyncio
+        import inspect as _inspect
+
+
+        # Resolve the callback to check if it's async
+        normalized = command_name.replace("_", "-")
+        callback = None
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                callback = tool_def.callback
+                break
+
+        if callback is not None and _inspect.iscoroutinefunction(callback):
+            return await self._acall_async(command_name, callback, **kwargs)
+
+        return await asyncio.to_thread(self.call, command_name, **kwargs)
+
+    async def _acall_async(self, command_name: str, callback: Any, **kwargs: Any) -> Any:
+        """Execute an async command callback directly."""
+        import inspect as _inspect
+
+        from tooli.python_api import TooliResult
+
+        app_name = self.info.name or "tooli"
+        start_time = time.perf_counter()
+
+        normalized = command_name.replace("_", "-")
+        resolved_name = normalized
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                resolved_name = tool_def.name
+                break
+
+        tool_id = f"{app_name}.{resolved_name}"
+
+        def _build_meta(duration_ms: int) -> dict[str, Any]:
+            return {"tool": tool_id, "version": self.version, "duration_ms": duration_ms, "caller_id": "python-api"}
+
+        dry_run = kwargs.pop("dry_run", False)
+
+        sig = _inspect.signature(callback)
+        valid_params = set()
+        for param in sig.parameters.values():
+            if param.name in ("ctx", "context"):
+                continue
+            if param.kind in {_inspect.Parameter.VAR_KEYWORD, _inspect.Parameter.VAR_POSITIONAL}:
+                continue
+            valid_params.add(param.name)
+
+        unknown = set(kwargs.keys()) - valid_params
+        if unknown:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            err_exc = InputError(message=f"Unknown parameter(s): {', '.join(sorted(unknown))}", code="E1001")
+            return TooliResult.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        try:
+            if dry_run:
+                result = {"dry_run": True, "command": resolved_name, "arguments": kwargs}
+            else:
+                result = await callback(**kwargs)
+
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            return TooliResult(ok=True, result=result, meta=_build_meta(duration_ms))
+
+        except ToolError as e:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            return TooliResult.from_tool_error(e, meta=_build_meta(duration_ms))
+
+        except Exception as e:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            internal_err = InternalError(message=f"Internal error: {e}")
+            return TooliResult.from_tool_error(internal_err, meta=_build_meta(duration_ms))
+
     def list_commands(self, _ctx: Any | None = None) -> list[str]:
         return sorted(command.name for command in self._commands if not command.hidden)
+
+    def get_command(self, command_name: str) -> Callable | None:
+        """Look up a command callback by name."""
+        normalized = command_name.replace("_", "-")
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                return tool_def.callback
+        return None
 
     def _build_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(prog=self.info.name, add_help=True)
