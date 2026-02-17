@@ -20,6 +20,7 @@ class EnvelopeMeta(BaseModel):
     caller_id: str | None = None
     caller_version: str | None = None
     session_id: str | None = None
+    output_schema: dict[str, Any] | None = None
 
 
 class Envelope(BaseModel):
