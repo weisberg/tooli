@@ -68,7 +68,13 @@ def _find_task(tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any] | No
     return None
 
 
-@app.command(annotations=Idempotent, error_codes={"E9001": "Invalid priority value"})
+@app.command(
+    annotations=Idempotent,
+    error_codes={"E9001": "Invalid priority value"},
+    when_to_use="Create a new task with a title, priority, and optional tags",
+    task_group="Mutation",
+    recovery_playbooks={"E9001": ["Check valid priorities: low, medium, high", "Retry with a corrected priority value"]},
+)
 def add(
     ctx: typer.Context,
     title: Annotated[str, Argument(help="Task title")],
@@ -119,7 +125,15 @@ def add(
     }
 
 
-@app.command(name="list", paginated=True, annotations=ReadOnly, version="1.0")
+@app.command(
+    name="list",
+    paginated=True,
+    annotations=ReadOnly,
+    version="1.0",
+    when_to_use="View tasks with optional filtering by status or priority",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def list_(
     *,
     store: Annotated[str, Option(help="JSON store file path")] = DEFAULT_STORE,
@@ -153,7 +167,11 @@ def list_(
     return tasks
 
 
-@app.command(annotations=Idempotent)
+@app.command(
+    annotations=Idempotent,
+    when_to_use="Mark a task as completed by its ID",
+    task_group="Mutation",
+)
 def done(
     ctx: typer.Context,
     task_id: Annotated[str, Argument(help="Task ID to mark as complete")],
@@ -192,7 +210,11 @@ def done(
     }
 
 
-@app.command(annotations=Idempotent)
+@app.command(
+    annotations=Idempotent,
+    when_to_use="Change a task's title or priority",
+    task_group="Mutation",
+)
 def edit(
     ctx: typer.Context,
     task_id: Annotated[str, Argument(help="Task ID to edit")],
@@ -242,6 +264,9 @@ def edit(
     annotations=Destructive,
     requires_approval=True,
     error_codes={"E9006": "No completed tasks to purge"},
+    when_to_use="Permanently delete all completed tasks to clean up the task store",
+    task_group="Mutation",
+    recovery_playbooks={"E9006": ["Run 'list --status-filter done' to verify completed tasks exist", "Mark tasks as done first with the 'done' command"]},
 )
 def purge(
     ctx: typer.Context,
@@ -268,6 +293,8 @@ def purge(
     annotations=Destructive,
     deprecated=True,
     deprecated_message="Use 'purge' instead",
+    when_to_use="Do not use; prefer 'purge' instead",
+    task_group="Mutation",
 )
 def remove(
     ctx: typer.Context,

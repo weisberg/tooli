@@ -65,6 +65,10 @@ def _read_source(source: str) -> tuple[str, str]:
         "characters": 1800,
         "paragraphs": 8,
     },
+    when_to_use="Get word/line/character counts for a document before summarizing or comparing documents",
+    task_group="Analysis",
+    pipe_input={"format": "text"},
+    pipe_output={"format": "json"},
 )
 def stats(
     source: Annotated[str, Argument(help="File path or '-' for stdin")],
@@ -93,7 +97,13 @@ def stats(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    when_to_use="Extract the outline or table of contents from a markdown document",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def headings(
     source: Annotated[str, Argument(help="Markdown file or '-' for stdin")],
     *,
@@ -117,7 +127,14 @@ def headings(
     return results
 
 
-@app.command(paginated=True, annotations=ReadOnly, max_tokens=8000)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    max_tokens=8000,
+    when_to_use="Find lines matching a pattern in a document, similar to grep but with structured output",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def search(
     source: Annotated[str, Argument(help="File or '-' for stdin")],
     pattern: Annotated[str, Argument(help="Search pattern (substring or regex)")],
@@ -154,7 +171,13 @@ def search(
     return results
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    when_to_use="Extract all hyperlinks from a markdown document for validation or indexing",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def links(
     source: Annotated[str, Argument(help="Markdown file or '-' for stdin")],
 ) -> list[dict[str, Any]]:
@@ -188,7 +211,12 @@ def links(
     return results
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    when_to_use="Pull out a specific section or line range from a document for focused analysis",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def extract(
     source: Annotated[str, Argument(help="File or '-' for stdin")],
     *,

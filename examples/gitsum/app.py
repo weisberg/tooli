@@ -81,7 +81,12 @@ def _run_git(args: list[str], repo: str = ".") -> str:
     return result.stdout
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    when_to_use="Get a quick overview of a git repository including branch, commit count, and remotes",
+    task_group="Query",
+    pipe_output={"format": "json"},
+)
 def summary(
     *,
     repo: Annotated[str, Option(help="Path to git repository")] = ".",
@@ -123,7 +128,14 @@ def summary(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly, timeout=60.0)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    timeout=60.0,
+    when_to_use="Analyze commit history with per-commit insertion/deletion stats, optionally filtered by date or author",
+    task_group="Analysis",
+    pipe_output={"format": "json"},
+)
 def log_stats(
     *,
     repo: Annotated[str, Option(help="Path to git repository")] = ".",
@@ -174,7 +186,14 @@ def log_stats(
     return commits
 
 
-@app.command(annotations=ReadOnly, timeout=30.0)
+@app.command(
+    annotations=ReadOnly,
+    timeout=30.0,
+    when_to_use="Review a diff to understand what changed: files affected, lines added/removed",
+    task_group="Analysis",
+    pipe_input={"format": "text"},
+    pipe_output={"format": "json"},
+)
 def diff_review(
     source: Annotated[str, Argument(help="Diff file path, '-' for stdin, or git ref range (e.g. HEAD~3..HEAD)")],
     *,
@@ -234,7 +253,13 @@ def _parse_diff(diff_text: str) -> dict[str, Any]:
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    when_to_use="List all contributors and their commit counts to understand team activity",
+    task_group="Report",
+    pipe_output={"format": "json"},
+)
 def contributors(
     *,
     repo: Annotated[str, Option(help="Path to git repository")] = ".",
@@ -265,7 +290,13 @@ def contributors(
     return results
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    when_to_use="Identify stale branches that may need cleanup based on last commit age",
+    task_group="Analysis",
+    pipe_output={"format": "json"},
+)
 def branch_health(
     *,
     repo: Annotated[str, Option(help="Path to git repository")] = ".",

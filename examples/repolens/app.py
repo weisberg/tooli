@@ -20,6 +20,9 @@ app = Tooli(
     examples=[
         {"args": ["summary", "."], "description": "Summarize the current directory"},
     ],
+    when_to_use="Get a high-level overview of a codebase including file counts, sizes, and key files",
+    task_group="Analysis",
+    pipe_output={"format": "json"},
 )
 def summary(
     root: Annotated[Path, Argument(help="Root directory to scan")] = Path("."),
@@ -67,6 +70,9 @@ def summary(
 
 @app.command(
     annotations=ReadOnly,
+    when_to_use="List all files in a repository with their sizes and modification times",
+    task_group="Query",
+    pipe_output={"format": "json"},
 )
 def inventory(
     root: Annotated[Path, Argument(help="Root directory to scan")] = Path("."),

@@ -86,19 +86,26 @@ def generate_agent_manifest(app: "Tooli") -> dict[str, Any]:
         input_schema, output_schema = _command_input_output_schema(callback)
         annotations = _annotation_hints(meta)
 
-        commands.append(
-            {
-                "name": tool_def.name,
-                "description": tool_def.help or (callback.__doc__ or ""),
-                "annotations": annotations,
-                "inputSchema": input_schema,
-                "outputSchema": output_schema,
-                "examples": list(meta.examples),
-                "error_codes": meta.error_codes,
-                "cost_hint": meta.cost_hint,
-                "supports_dry_run": bool(meta.supports_dry_run),
-            }
-        )
+        entry: dict[str, Any] = {
+            "name": tool_def.name,
+            "description": tool_def.help or (callback.__doc__ or ""),
+            "annotations": annotations,
+            "inputSchema": input_schema,
+            "outputSchema": output_schema,
+            "examples": list(meta.examples),
+            "error_codes": meta.error_codes,
+            "cost_hint": meta.cost_hint,
+            "supports_dry_run": bool(meta.supports_dry_run),
+        }
+        if meta.pipe_input is not None:
+            entry["pipe_input"] = meta.pipe_input
+        if meta.pipe_output is not None:
+            entry["pipe_output"] = meta.pipe_output
+        if meta.task_group is not None:
+            entry["task_group"] = meta.task_group
+        if meta.when_to_use is not None:
+            entry["when_to_use"] = meta.when_to_use
+        commands.append(entry)
         error_entries.extend(_command_error_catalog_entries(tool_def.name, meta))
 
     manifest: dict[str, Any] = {

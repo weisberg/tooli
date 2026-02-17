@@ -52,6 +52,14 @@ class CommandMeta:
     output_schema: dict[str, Any] | None = None
     secret_params: list[str] = field(default_factory=list)
 
+    # v4 fields
+    pipe_input: dict[str, Any] | None = None
+    pipe_output: dict[str, Any] | None = None
+    when_to_use: str | None = None
+    expected_outputs: list[dict[str, Any]] = field(default_factory=list)
+    recovery_playbooks: dict[str, list[str]] = field(default_factory=dict)
+    task_group: str | None = None
+
 
 def get_command_meta(callback: Callable[..., Any] | None) -> CommandMeta:
     """Retrieve CommandMeta from a callback, with safe defaults."""

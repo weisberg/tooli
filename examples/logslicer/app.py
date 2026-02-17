@@ -24,6 +24,10 @@ app = Tooli(
         {"args": ["parse", "app.log"], "description": "Parse a log file"},
         {"args": ["parse", "-"], "description": "Parse from stdin"},
     ],
+    when_to_use="Convert raw log files into structured JSON events for analysis or filtering",
+    task_group="Query",
+    pipe_input={"format": "text"},
+    pipe_output={"format": "json"},
 )
 def parse(
     source: Annotated[StdinOr[str], Argument(help="Log source (file, URL, or '-')")],
@@ -47,6 +51,10 @@ def parse(
 
 @app.command(
     annotations=ReadOnly,
+    when_to_use="Get a quick summary of log entry counts and error distribution",
+    task_group="Analysis",
+    pipe_input={"format": "text"},
+    pipe_output={"format": "json"},
 )
 def stats(
     source: Annotated[StdinOr[str], Argument(help="Log source")],
