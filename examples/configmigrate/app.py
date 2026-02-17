@@ -20,6 +20,7 @@ app = Tooli(
     examples=[
         {"args": ["run", "old_config.json"], "description": "Validate and migrate a config file"},
     ],
+    capabilities=["fs:read"],
 )
 def run(
     source: Annotated[StdinOr[str], Argument(help="Config source")],

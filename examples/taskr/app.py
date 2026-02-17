@@ -74,6 +74,8 @@ def _find_task(tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any] | No
     when_to_use="Create a new task with a title, priority, and optional tags",
     task_group="Mutation",
     recovery_playbooks={"E9001": ["Check valid priorities: low, medium, high", "Retry with a corrected priority value"]},
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "list", "when": "verify the task was created"}],
 )
 def add(
     ctx: typer.Context,
@@ -133,6 +135,8 @@ def add(
     when_to_use="View tasks with optional filtering by status or priority",
     task_group="Query",
     pipe_output={"format": "json"},
+    capabilities=["fs:read"],
+    handoffs=[{"command": "done", "when": "mark a displayed task as complete"}, {"command": "edit", "when": "modify a displayed task"}],
 )
 def list_(
     *,
@@ -171,6 +175,8 @@ def list_(
     annotations=Idempotent,
     when_to_use="Mark a task as completed by its ID",
     task_group="Mutation",
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "list", "when": "verify the task status changed"}],
 )
 def done(
     ctx: typer.Context,
@@ -214,6 +220,8 @@ def done(
     annotations=Idempotent,
     when_to_use="Change a task's title or priority",
     task_group="Mutation",
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "list", "when": "verify the edit"}],
 )
 def edit(
     ctx: typer.Context,
@@ -267,6 +275,8 @@ def edit(
     when_to_use="Permanently delete all completed tasks to clean up the task store",
     task_group="Mutation",
     recovery_playbooks={"E9006": ["Run 'list --status-filter done' to verify completed tasks exist", "Mark tasks as done first with the 'done' command"]},
+    capabilities=["fs:read", "fs:write", "fs:delete"],
+    handoffs=[{"command": "list", "when": "verify remaining tasks after purge"}],
 )
 def purge(
     ctx: typer.Context,
@@ -295,6 +305,7 @@ def purge(
     deprecated_message="Use 'purge' instead",
     when_to_use="Do not use; prefer 'purge' instead",
     task_group="Mutation",
+    capabilities=["fs:read", "fs:write", "fs:delete"],
 )
 def remove(
     ctx: typer.Context,

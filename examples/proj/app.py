@@ -50,7 +50,11 @@ TEMPLATES: dict[str, dict[str, str]] = {
 }
 
 
-@app.command(annotations=Destructive)
+@app.command(
+    annotations=Destructive,
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "add-tool", "when": "scaffold a new tool in the project"}, {"command": "validate", "when": "verify the project structure"}],
+)
 @dry_run_support
 def init(
     ctx: typer.Context,
@@ -100,7 +104,11 @@ def init(
     }
 
 
-@app.command(annotations=Destructive)
+@app.command(
+    annotations=Destructive,
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "validate", "when": "verify the tool was added correctly"}],
+)
 @dry_run_support
 def add_tool(
     ctx: typer.Context,
@@ -146,7 +154,11 @@ def add_tool(
     }
 
 
-@app.command(annotations=Idempotent | ReadOnly)
+@app.command(
+    annotations=Idempotent | ReadOnly,
+    capabilities=["fs:read"],
+    handoffs=[{"command": "info", "when": "get full project metadata"}],
+)
 def validate(
     *,
     directory: Annotated[str, Option(help="Project directory")] = ".",
@@ -191,7 +203,10 @@ def validate(
     }
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    capabilities=["fs:read"],
+)
 def info(
     *,
     directory: Annotated[str, Option(help="Project directory")] = ".",

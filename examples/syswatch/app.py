@@ -21,7 +21,7 @@ from tooli.errors import InputError, ToolRuntimeError
 app = Tooli(name="syswatch", help="System health inspection tools")
 
 
-@app.command(annotations=ReadOnly | OpenWorld)
+@app.command(annotations=ReadOnly | OpenWorld, capabilities=["process:read", "env:read"])
 def status() -> dict[str, Any]:
     """System overview: OS, hostname, Python version, CPU count, load averages."""
     info: dict[str, Any] = {
@@ -47,7 +47,7 @@ def status() -> dict[str, Any]:
     return info
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["process:exec"])
 def processes(
     *,
     sort_by: Annotated[str, Option(help="Sort by: pid or name")] = "pid",
@@ -115,7 +115,7 @@ def processes(
     return procs
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["fs:read"])
 def disk(
     *,
     path: Annotated[str, Option(help="Path to check disk usage for")] = "/",
@@ -152,7 +152,7 @@ def disk(
     }]
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["process:exec"])
 def network() -> list[dict[str, Any]]:
     """Network interface information."""
     system = platform.system()
@@ -217,7 +217,7 @@ def network() -> list[dict[str, Any]]:
     return interfaces
 
 
-@app.command(annotations=ReadOnly, cost_hint="high")
+@app.command(annotations=ReadOnly, cost_hint="high", capabilities=["process:read", "env:read"])
 def watch(
     *,
     interval: Annotated[float, Option(help="Seconds between checks")] = 1.0,

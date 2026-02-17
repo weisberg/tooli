@@ -19,6 +19,7 @@ app = Tooli(
     examples=[
         {"args": ["inspect", "photo.jpg"], "description": "Inspect an image"},
     ],
+    capabilities=["fs:read"],
 )
 def inspect(
     source: Annotated[StdinOr[bytes], Argument(help="Media file or bytes")],
@@ -37,6 +38,7 @@ def inspect(
 @app.command(
     annotations=Destructive,
     cost_hint="high",
+    capabilities=["fs:read", "fs:write"],
 )
 @dry_run_support
 def normalize(

@@ -22,6 +22,7 @@ app = Tooli(
     examples=[
         {"args": ["index", "~/docs"], "description": "Index documents in a folder"},
     ],
+    capabilities=["fs:read"],
 )
 def index(
     root: Annotated[Path, Argument(help="Directory to index")],
@@ -39,6 +40,7 @@ def index(
 
 @app.command(
     annotations=ReadOnly,
+    capabilities=["fs:read"],
 )
 def search(
     query: Annotated[str, Argument(help="Search query term")],

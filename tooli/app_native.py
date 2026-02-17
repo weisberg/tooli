@@ -515,6 +515,45 @@ class Tooli:
             internal_err = InternalError(message=f"Internal error: {e}")
             return TooliResult.from_tool_error(internal_err, meta=_build_meta(duration_ms))
 
+    def stream(self, command_name: str, **kwargs: Any) -> Any:
+        """Invoke a command and yield individual ``TooliResult`` items.
+
+        For commands that return a list, each element is yielded as a
+        separate ``TooliResult(ok=True, result=item)``.  Non-list results
+        are yielded as a single ``TooliResult``.  Errors are yielded as
+        a single ``TooliResult(ok=False, ...)``.
+        """
+        from tooli.python_api import TooliResult
+
+        result = self.call(command_name, **kwargs)
+        if not result.ok:
+            yield result
+            return
+
+        if isinstance(result.result, list):
+            for item in result.result:
+                yield TooliResult(ok=True, result=item, meta=result.meta)
+        else:
+            yield result
+
+    async def astream(self, command_name: str, **kwargs: Any) -> Any:
+        """Async variant of ``stream()``.
+
+        Yields individual ``TooliResult`` items asynchronously.
+        """
+        from tooli.python_api import TooliResult
+
+        result = await self.acall(command_name, **kwargs)
+        if not result.ok:
+            yield result
+            return
+
+        if isinstance(result.result, list):
+            for item in result.result:
+                yield TooliResult(ok=True, result=item, meta=result.meta)
+        else:
+            yield result
+
     def list_commands(self, _ctx: Any | None = None) -> list[str]:
         return sorted(command.name for command in self._commands if not command.hidden)
 

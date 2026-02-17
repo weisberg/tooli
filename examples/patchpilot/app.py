@@ -21,6 +21,7 @@ app = Tooli(
     examples=[
         {"args": ["apply", "fix.diff", "--dry-run"], "description": "Preview a patch application"},
     ],
+    capabilities=["fs:read", "fs:write"],
 )
 @dry_run_support
 def apply(
