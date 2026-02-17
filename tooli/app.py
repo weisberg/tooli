@@ -383,10 +383,157 @@ class Tooli(typer.Typer):
 
             return TooliResult.from_tool_error(internal_err, meta=meta)
 
+    async def acall(self, command_name: str, **kwargs: Any) -> Any:
+        """Async variant of ``call()``.
+
+        If the command function is a coroutine, it is awaited directly.
+        Otherwise the synchronous function is run via ``asyncio.to_thread()``.
+
+        Returns a ``TooliResult`` — same type and semantics as ``call()``.
+        """
+        import asyncio
+        import inspect as _inspect
+
+
+        # Resolve the callback to check if it's async
+        normalized = command_name.replace("_", "-")
+        callback = None
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                callback = tool_def.callback
+                break
+
+        if callback is not None and _inspect.iscoroutinefunction(callback):
+            # Async command — call() internals but with await
+            return await self._acall_async(command_name, callback, **kwargs)
+
+        # Sync command — delegate to call() in a thread
+        return await asyncio.to_thread(self.call, command_name, **kwargs)
+
+    async def _acall_async(self, command_name: str, callback: Any, **kwargs: Any) -> Any:
+        """Execute an async command callback directly."""
+        import inspect
+        import time
+
+        from tooli.errors import InternalError, ToolError
+        from tooli.python_api import TooliResult
+
+        app_name = self.info.name or "tooli"
+        start = time.perf_counter()
+
+        normalized = command_name.replace("_", "-")
+        resolved_name = normalized
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                resolved_name = tool_def.name
+                break
+
+        tool_id = f"{app_name}.{resolved_name}"
+
+        def _build_meta(duration_ms: int) -> dict[str, Any]:
+            return {
+                "tool": tool_id,
+                "version": self.version,
+                "duration_ms": duration_ms,
+                "caller_id": "python-api",
+            }
+
+        dry_run = kwargs.pop("dry_run", False)
+
+        sig = inspect.signature(callback)
+        valid_params = set()
+        for param in sig.parameters.values():
+            if param.name in ("ctx", "context"):
+                continue
+            if param.kind in {inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL}:
+                continue
+            valid_params.add(param.name)
+
+        unknown = set(kwargs.keys()) - valid_params
+        if unknown:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            from tooli.errors import InputError
+            err_exc = InputError(
+                message=f"Unknown parameter(s): {', '.join(sorted(unknown))}",
+                code="E1001",
+            )
+            return TooliResult.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        from tooli.telemetry import duration_ms as otel_duration_ms
+        from tooli.telemetry import start_command_span
+
+        command_span = start_command_span(command=tool_id, arguments=kwargs)
+        command_span.set_caller(caller_id="python-api", caller_version=None, session_id=None)
+
+        try:
+            if dry_run:
+                result = {"dry_run": True, "command": resolved_name, "arguments": kwargs}
+            else:
+                result = await callback(**kwargs)
+
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id, args=kwargs, status="success",
+                    duration_ms=duration_ms, caller_id="python-api",
+                )
+
+            command_span.set_outcome(exit_code=0, error_category=None, duration_ms=otel_duration_ms(start))
+            if self.telemetry_pipeline is not None:
+                self.telemetry_pipeline.record(
+                    command=tool_id, success=True, duration_ms=duration_ms, exit_code=0,
+                )
+
+            return TooliResult(ok=True, result=result, meta=meta)
+
+        except ToolError as e:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id, args=kwargs, status="error",
+                    duration_ms=duration_ms, error_code=e.code, caller_id="python-api",
+                )
+
+            command_span.set_outcome(exit_code=1, error_category=e.category.value, duration_ms=otel_duration_ms(start))
+            return TooliResult.from_tool_error(e, meta=meta)
+
+        except Exception as e:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+            internal_err = InternalError(message=f"Internal error: {e}")
+
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id, args=kwargs, status="error",
+                    duration_ms=duration_ms, error_code=internal_err.code, caller_id="python-api",
+                )
+
+            command_span.set_outcome(exit_code=1, error_category="internal", duration_ms=otel_duration_ms(start))
+            return TooliResult.from_tool_error(internal_err, meta=meta)
+
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
         """Override click help output to use transformed command names."""
         del ctx
         return sorted(tool.name for tool in self.get_tools() if not tool.hidden)
+
+    def get_command(self, command_name: str) -> Callable[..., Any] | None:
+        """Look up a command callback by name.
+
+        Returns the callable or ``None`` if not found.  Accepts both
+        hyphenated (``find-files``) and underscored (``find_files``) names.
+        """
+        normalized = command_name.replace("_", "-")
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                return tool_def.callback
+        return None
 
     def resource(
         self,
