@@ -15,7 +15,7 @@ import traceback
 import types
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, get_args, get_origin
+from typing import Any, get_args, get_origin, get_type_hints
 
 import click
 from typer.core import TyperCommand
@@ -779,6 +779,7 @@ def _build_envelope_meta(
     truncated: bool = False,
     next_cursor: str | None = None,
     truncation_message: str | None = None,
+    output_schema: dict[str, Any] | None = None,
 ) -> EnvelopeMeta:
     warnings: list[str] = []
     command = getattr(ctx, "command", None)
@@ -807,6 +808,7 @@ def _build_envelope_meta(
         caller_id=detection.caller_id,
         caller_version=detection.caller_version,
         session_id=detection.session_id,
+        output_schema=output_schema,
     )
 
 
@@ -1451,6 +1453,29 @@ class TooliCommand(TyperCommand):
         def _authorize() -> None:
             _enforce_authorization(auth_context=auth_context, required_scopes=required_scopes)
 
+        def _enforce_capabilities() -> None:
+            if security_policy != SecurityPolicy.STRICT:
+                return
+            capabilities = list(cb_meta.capabilities)
+            if not capabilities:
+                return
+            allowed_raw = os.environ.get("TOOLI_ALLOWED_CAPABILITIES", "")
+            if not allowed_raw:
+                return  # No allowlist set — skip enforcement
+            allowed = {c.strip() for c in allowed_raw.split(",") if c.strip()}
+            denied = [c for c in capabilities if c not in allowed and not any(c.startswith(a.rstrip(":*") + ":") for a in allowed if a.endswith(":*"))]
+            if denied:
+                _audit_security_event(
+                    ctx,
+                    event="capability_violation",
+                    details={"denied": denied, "required": capabilities, "allowed": sorted(allowed)},
+                )
+                raise AuthError(
+                    message=f"Capability not allowed: {', '.join(denied)}",
+                    code="E2002",
+                    details={"denied_capabilities": denied, "required_capabilities": capabilities},
+                )
+
         def _check_idempotency() -> None:
             nonlocal result, used_cached_result
             if not idempotency_key:
@@ -1552,6 +1577,7 @@ class TooliCommand(TyperCommand):
                     allow_python_eval=allow_python_eval,
                 )
                 _authorize()
+                _enforce_capabilities()
                 _enforce_security_policy()
 
                 # Resolve secret arguments before invoking the callback.
@@ -1696,6 +1722,27 @@ class TooliCommand(TyperCommand):
             return result
 
         if mode in (OutputMode.JSON, OutputMode.JSONL):
+            # Include output schema in detailed mode or when explicitly requested
+            _output_schema: dict[str, Any] | None = None
+            _include_schema = (
+                resolve_response_format(ctx) == ResponseFormat.DETAILED
+                or os.environ.get("TOOLI_INCLUDE_SCHEMA", "").lower() in {"1", "true", "yes"}
+            )
+            if _include_schema:
+                _output_schema = cb_meta.output_schema
+                if _output_schema is None:
+                    # Infer from return annotation
+                    import inspect as _inspect
+
+                    from tooli.schema import _infer_output_schema
+                    try:
+                        _hints = get_type_hints(self.callback, include_extras=True)  # type: ignore[arg-type]
+                    except Exception:
+                        _hints = {}
+                    _sig = _inspect.signature(self.callback)  # type: ignore[arg-type]
+                    _return_ann = _hints.get("return", _sig.return_annotation)
+                    _output_schema = _infer_output_schema(_return_ann, cb_meta.output_example)
+
             meta = _build_envelope_meta(
                 ctx,
                 app_version=app_version or "0.0.0",
@@ -1704,6 +1751,7 @@ class TooliCommand(TyperCommand):
                 truncated=bool(pagination_meta.get("truncated", False)),
                 next_cursor=pagination_meta.get("next_cursor"),
                 truncation_message=pagination_meta.get("truncation_message"),
+                output_schema=_output_schema,
             )
 
         if mode == OutputMode.JSON:
