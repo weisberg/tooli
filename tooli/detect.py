@@ -121,6 +121,7 @@ class CallerCategory(str, Enum):
     CI_CD = "ci_cd"
     CONTAINER = "container"
     UNKNOWN_AUTOMATION = "unknown_automation"
+    PYTHON_API = "python_api"
 
 
 @dataclass(frozen=True)

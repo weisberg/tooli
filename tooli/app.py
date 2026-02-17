@@ -14,9 +14,9 @@ import typer
 from typer.main import TyperGroup  # type: ignore[attr-defined]
 
 from tooli.auth import AuthContext
+from tooli.backends.native import translate_marker
 from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
 from tooli.command_meta import CommandMeta, PromptMeta, ResourceMeta, get_command_meta
-from tooli.backends.native import NativeArgument, NativeOption, translate_marker
 from tooli.eval.recorder import build_invocation_recorder
 from tooli.input import SecretInput, is_secret_input
 from tooli.providers.local import LocalProvider
@@ -198,6 +198,191 @@ class Tooli(typer.Typer):
         """Return registered MCP prompt callbacks."""
         return list(self._prompts)
 
+    def call(self, command_name: str, **kwargs: Any) -> Any:
+        """Invoke a command by name as a Python function call.
+
+        Bypasses CLI parsing but uses the same validation, error handling,
+        telemetry, and recording pipeline.  Returns a ``TooliResult``.
+
+        Parameters
+        ----------
+        command_name:
+            Command name (hyphens or underscores accepted).
+        **kwargs:
+            Arguments to pass to the command function.
+
+        Returns
+        -------
+        TooliResult
+            Structured result with ``ok``, ``result``, ``error``, and ``meta``.
+        """
+        import inspect
+        import time
+
+        from tooli.errors import InternalError, ToolError
+        from tooli.python_api import TooliError, TooliResult
+
+        app_name = self.info.name or "tooli"
+        start = time.perf_counter()
+
+        # Resolve command by name (accept hyphens or underscores)
+        normalized = command_name.replace("_", "-")
+        callback = None
+        resolved_name = normalized
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                callback = tool_def.callback
+                resolved_name = tool_def.name
+                break
+
+        tool_id = f"{app_name}.{resolved_name}"
+
+        def _build_meta(duration_ms: int) -> dict[str, Any]:
+            return {
+                "tool": tool_id,
+                "version": self.version,
+                "duration_ms": duration_ms,
+                "caller_id": "python-api",
+            }
+
+        if callback is None:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            err = TooliError(
+                code="E1001",
+                category="input",
+                message=f"Unknown command: {command_name}",
+            )
+            return TooliResult(ok=False, error=err, meta=_build_meta(duration_ms))
+
+        # Extract special kwargs that map to framework flags
+        dry_run = kwargs.pop("dry_run", False)
+
+        # Validate kwargs against the function signature
+        sig = inspect.signature(callback)
+        valid_params = set()
+        for param in sig.parameters.values():
+            if param.name in ("ctx", "context"):
+                continue
+            if param.kind in {inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL}:
+                continue
+            valid_params.add(param.name)
+
+        unknown = set(kwargs.keys()) - valid_params
+        if unknown:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            from tooli.errors import InputError
+            err_exc = InputError(
+                message=f"Unknown parameter(s): {', '.join(sorted(unknown))}",
+                code="E1001",
+            )
+            return TooliResult.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        # Telemetry
+        from tooli.telemetry import duration_ms as otel_duration_ms
+        from tooli.telemetry import start_command_span
+
+        command_span = start_command_span(command=tool_id, arguments=kwargs)
+        command_span.set_caller(
+            caller_id="python-api",
+            caller_version=None,
+            session_id=None,
+        )
+
+        # Execute
+        try:
+            if dry_run:
+                result = {
+                    "dry_run": True,
+                    "command": resolved_name,
+                    "arguments": kwargs,
+                }
+            else:
+                result = callback(**kwargs)
+
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+
+            # Record invocation
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id,
+                    args=kwargs,
+                    status="success",
+                    duration_ms=duration_ms,
+                    caller_id="python-api",
+                )
+
+            # Telemetry
+            command_span.set_outcome(
+                exit_code=0,
+                error_category=None,
+                duration_ms=otel_duration_ms(start),
+            )
+            if self.telemetry_pipeline is not None:
+                self.telemetry_pipeline.record(
+                    command=tool_id,
+                    success=True,
+                    duration_ms=duration_ms,
+                    exit_code=0,
+                )
+
+            return TooliResult(ok=True, result=result, meta=meta)
+
+        except ToolError as e:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id,
+                    args=kwargs,
+                    status="error",
+                    duration_ms=duration_ms,
+                    error_code=e.code,
+                    caller_id="python-api",
+                )
+
+            command_span.set_outcome(
+                exit_code=1,
+                error_category=e.category.value,
+                duration_ms=otel_duration_ms(start),
+            )
+            if self.telemetry_pipeline is not None:
+                self.telemetry_pipeline.record(
+                    command=tool_id,
+                    success=False,
+                    duration_ms=duration_ms,
+                    exit_code=1,
+                    error_code=e.code,
+                    error_category=e.category.value,
+                )
+
+            return TooliResult.from_tool_error(e, meta=meta)
+
+        except Exception as e:
+            duration_ms = max(1, int((time.perf_counter() - start) * 1000))
+            meta = _build_meta(duration_ms)
+            internal_err = InternalError(message=f"Internal error: {e}")
+
+            if self.invocation_recorder is not None:
+                self.invocation_recorder.record(
+                    command=tool_id,
+                    args=kwargs,
+                    status="error",
+                    duration_ms=duration_ms,
+                    error_code=internal_err.code,
+                    caller_id="python-api",
+                )
+
+            command_span.set_outcome(
+                exit_code=1,
+                error_category="internal",
+                duration_ms=otel_duration_ms(start),
+            )
+
+            return TooliResult.from_tool_error(internal_err, meta=meta)
+
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
         """Override click help output to use transformed command names."""
         del ctx
@@ -263,7 +448,7 @@ class Tooli(typer.Typer):
             format_: str = typer.Option(
                 "claude-skill",
                 "--format",
-                help="Output format: skill|manifest|claude-skill|claude-md",
+                help="Output format: skill|manifest|claude-skill|claude-md|agents-md",
                 show_default=True,
             ),
             target: str = typer.Option(
@@ -284,8 +469,8 @@ class Tooli(typer.Typer):
             from tooli.manifest import manifest_as_json
             if detail_level not in {"auto", "summary", "full"}:
                 raise click.BadParameter("detail_level must be auto, summary, or full.")
-            if format_ not in {"skill", "manifest", "claude-skill", "claude-md"}:
-                raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
+            if format_ not in {"skill", "manifest", "claude-skill", "claude-md", "agents-md"}:
+                raise click.BadParameter("format must be skill, manifest, claude-skill, claude-md, or agents-md.")
             if target not in {"generic-skill", "claude-skill", "claude-code"}:
                 raise click.BadParameter("target must be generic-skill, claude-skill, or claude-code.")
 
@@ -300,8 +485,12 @@ class Tooli(typer.Typer):
                 )
             elif format_ == "claude-md":
                 content = generate_claude_md(self)
+            elif format_ == "agents-md":
+                from tooli.docs.agents_md import generate_agents_md
+
+                content = generate_agents_md(self)
             else:
-                raise click.BadParameter("format must be skill, manifest, claude-skill, or claude-md.")
+                raise click.BadParameter("format must be skill, manifest, claude-skill, claude-md, or agents-md.")
 
             if validate and format_ != "manifest":
                 validation = validate_skill_doc(content)
@@ -320,10 +509,35 @@ class Tooli(typer.Typer):
                     f.write(content)
                 click.echo(f"Generated {output_path}")
 
+        @self.command(name="generate-agents-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
+        def generate_agents_md_command(
+            output_path: str | None = typer.Option(
+                "AGENTS.md",
+                "--output-path",
+                "--output",
+                help="Output file path",
+            ),
+        ) -> None:
+            """Generate AGENTS.md for this application."""
+            import click
+
+            from tooli.docs.agents_md import generate_agents_md
+
+            content = generate_agents_md(self)
+            if output_path == "-":
+                click.echo(content)
+            else:
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                click.echo(f"Generated {output_path}")
+
         @self.command(name="detect-context", cls=TooliCommand, hidden=True)  # type: ignore[untyped-decorator]
         def detect_context() -> dict[str, Any] | str:
             """Detect the current execution context (human, agent, CI, container)."""
-            from tooli.detect import _format_json, _format_report, detect_execution_context
+            from tooli.detect import (
+                _format_json,
+                detect_execution_context,
+            )
 
             ctx = detect_execution_context()
             import json
@@ -345,31 +559,22 @@ class Tooli(typer.Typer):
 
         @self.command(name="export", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
         def export_command(
-            target: Annotated[
-                str,
-                typer.Option(
-                    ...,
-                    "--target",
-                    help="Export target: openai|langchain|adk|python",
-                    show_default=False,
-                ),
-            ],
-            command: Annotated[
-                str | None,
-                typer.Option(
-                    None,
-                    "--command",
-                    help="Export only a single command by name.",
-                ),
-            ] = None,
-            mode: Annotated[
-                str,
-                typer.Option(
-                    "subprocess",
-                    "--mode",
-                    help="Export mode: subprocess|import",
-                ),
-            ] = "subprocess",
+            target: str = typer.Option(
+                ...,
+                "--target",
+                help="Export target: openai|langchain|adk|python",
+                show_default=False,
+            ),
+            command: str | None = typer.Option(
+                None,
+                "--command",
+                help="Export only a single command by name.",
+            ),
+            mode: str = typer.Option(
+                "subprocess",
+                "--mode",
+                help="Export mode: subprocess|import",
+            ),
         ) -> None:
             """Generate framework-specific integration code."""
             import click
@@ -602,9 +807,11 @@ class Tooli(typer.Typer):
             output_path: str | None = None,
         ) -> dict[str, Any]:
             """Run a minimal synthetic harness to validate agent-facing behavior."""
-            from tooli.eval.agent_test import run_agent_tests
-            import click
             import json
+
+            import click
+
+            from tooli.eval.agent_test import run_agent_tests
 
             command_names = [name.strip() for name in commands.split(",")] if commands else []
             report = run_agent_tests(

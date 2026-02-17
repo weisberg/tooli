@@ -9,14 +9,14 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Annotated, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
-from tooli.backends.native import Argument as NativeArgument, Option as NativeOption
+from tooli.backends.native import Argument as NativeArgument
+from tooli.backends.native import Option as NativeOption
 from tooli.command_meta import CommandMeta
 from tooli.envelope import Envelope, EnvelopeMeta
-from tooli.errors import InternalError, InputError, ToolError
+from tooli.errors import InputError, InternalError, ToolError
 from tooli.transforms import ToolDef
 from tooli.versioning import compare_versions
 
@@ -312,7 +312,7 @@ class Tooli:
             return callback
         return _wrap
 
-    def with_transforms(self, *transforms: Any) -> "Tooli":
+    def with_transforms(self, *transforms: Any) -> Tooli:
         clone = self.__class__(
             backend="native",
             version=self.version,
@@ -341,6 +341,92 @@ class Tooli:
     @property
     def registered_commands(self) -> list[_NativeTooliConfig]:
         return list(self._commands)
+
+    def call(self, command_name: str, **kwargs: Any) -> Any:
+        """Invoke a command by name as a Python function call.
+
+        Bypasses CLI parsing.  Returns a ``TooliResult``.
+        """
+        start_time = time.perf_counter()
+
+        from tooli.python_api import TooliError, TooliResult
+
+        app_name = self.info.name or "tooli"
+
+        # Resolve command by name (accept hyphens or underscores)
+        normalized = command_name.replace("_", "-")
+        callback = None
+        resolved_name = normalized
+        for tool_def in self.get_tools():
+            tool_name_normalized = tool_def.name.replace("_", "-")
+            if tool_name_normalized == normalized or tool_def.name == command_name:
+                callback = tool_def.callback
+                resolved_name = tool_def.name
+                break
+
+        tool_id = f"{app_name}.{resolved_name}"
+
+        def _build_meta(duration_ms: int) -> dict[str, Any]:
+            return {
+                "tool": tool_id,
+                "version": self.version,
+                "duration_ms": duration_ms,
+                "caller_id": "python-api",
+            }
+
+        if callback is None:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            err = TooliError(
+                code="E1001",
+                category="input",
+                message=f"Unknown command: {command_name}",
+            )
+            return TooliResult(ok=False, error=err, meta=_build_meta(duration_ms))
+
+        # Extract special kwargs
+        dry_run = kwargs.pop("dry_run", False)
+
+        # Validate kwargs
+        sig = inspect.signature(callback)
+        valid_params = set()
+        for param in sig.parameters.values():
+            if param.name in ("ctx", "context"):
+                continue
+            if param.kind in {inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL}:
+                continue
+            valid_params.add(param.name)
+
+        unknown = set(kwargs.keys()) - valid_params
+        if unknown:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            err_exc = InputError(
+                message=f"Unknown parameter(s): {', '.join(sorted(unknown))}",
+                code="E1001",
+            )
+            from tooli.python_api import TooliResult as _TR
+            return _TR.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        try:
+            if dry_run:
+                result = {
+                    "dry_run": True,
+                    "command": resolved_name,
+                    "arguments": kwargs,
+                }
+            else:
+                result = callback(**kwargs)
+
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            return TooliResult(ok=True, result=result, meta=_build_meta(duration_ms))
+
+        except ToolError as e:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            return TooliResult.from_tool_error(e, meta=_build_meta(duration_ms))
+
+        except Exception as e:
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            internal_err = InternalError(message=f"Internal error: {e}")
+            return TooliResult.from_tool_error(internal_err, meta=_build_meta(duration_ms))
 
     def list_commands(self, _ctx: Any | None = None) -> list[str]:
         return sorted(command.name for command in self._commands if not command.hidden)
