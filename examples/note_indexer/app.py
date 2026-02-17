@@ -494,7 +494,7 @@ def _compute_diff(
     return summary
 
 
-@app.command(paginated=False)
+@app.command(paginated=False, capabilities=["fs:read", "fs:write"])
 def ingest(
     ctx: typer.Context,
     source: Annotated[str, Argument(help="Directory, file, or '-' to read markdown from stdin")],
@@ -568,7 +568,7 @@ def ingest(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["fs:read"])
 def find(
     query: Annotated[str | None, Argument(help="Search query")] = None,
     *,
@@ -627,7 +627,7 @@ def find(
     return filtered
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["fs:read"])
 def related(
     note_id: Annotated[str, Argument(help="Reference note id")],
     *,
@@ -679,7 +679,7 @@ def related(
     return candidates[:max_results]
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly, capabilities=["fs:read"])
 def export(
     *,
     index_path: Annotated[str, Option(help="Index JSON file to export")] = DEFAULT_INDEX_PATH,
@@ -726,7 +726,7 @@ def export(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["fs:read"])
 def watch(
     source: Annotated[str, Argument(help="Directory or file to compare against index")],
     *,

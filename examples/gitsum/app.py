@@ -86,6 +86,8 @@ def _run_git(args: list[str], repo: str = ".") -> str:
     when_to_use="Get a quick overview of a git repository including branch, commit count, and remotes",
     task_group="Query",
     pipe_output={"format": "json"},
+    capabilities=["fs:read", "process:exec"],
+    handoffs=[{"command": "log-stats", "when": "need detailed commit-level statistics"}, {"command": "branch-health", "when": "need to check for stale branches"}],
 )
 def summary(
     *,
@@ -135,6 +137,8 @@ def summary(
     when_to_use="Analyze commit history with per-commit insertion/deletion stats, optionally filtered by date or author",
     task_group="Analysis",
     pipe_output={"format": "json"},
+    capabilities=["fs:read", "process:exec"],
+    handoffs=[{"command": "diff-review", "when": "need to review changes in a specific commit range"}],
 )
 def log_stats(
     *,
@@ -193,6 +197,7 @@ def log_stats(
     task_group="Analysis",
     pipe_input={"format": "text"},
     pipe_output={"format": "json"},
+    capabilities=["fs:read", "process:exec"],
 )
 def diff_review(
     source: Annotated[str, Argument(help="Diff file path, '-' for stdin, or git ref range (e.g. HEAD~3..HEAD)")],
@@ -259,6 +264,8 @@ def _parse_diff(diff_text: str) -> dict[str, Any]:
     when_to_use="List all contributors and their commit counts to understand team activity",
     task_group="Report",
     pipe_output={"format": "json"},
+    capabilities=["fs:read", "process:exec"],
+    handoffs=[{"command": "log-stats", "when": "need to drill into a specific contributor's commits"}],
 )
 def contributors(
     *,
@@ -296,6 +303,8 @@ def contributors(
     when_to_use="Identify stale branches that may need cleanup based on last commit age",
     task_group="Analysis",
     pipe_output={"format": "json"},
+    capabilities=["fs:read", "process:exec"],
+    delegation_hint="Use this before cleanup operations to identify stale branches",
 )
 def branch_health(
     *,

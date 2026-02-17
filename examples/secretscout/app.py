@@ -19,6 +19,7 @@ app = Tooli(
     examples=[
         {"args": ["scan", "."], "description": "Scan current directory for secrets"},
     ],
+    capabilities=["fs:read"],
 )
 def scan(
     root: Annotated[Path, Argument(help="Directory to scan")] = Path("."),

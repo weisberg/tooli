@@ -69,7 +69,12 @@ def _file_date(path: Path) -> str:
     return datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d")
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    capabilities=["fs:read"],
+    handoffs=[{"command": "organize", "when": "sort scanned images into folders"}, {"command": "duplicates", "when": "check for duplicate images"}],
+)
 def scan(
     directory: Annotated[str, Argument(help="Directory to scan for images")],
     *,
@@ -92,7 +97,13 @@ def scan(
     ]
 
 
-@app.command(annotations=Destructive | Idempotent, human_in_the_loop=True, danger_level="medium")
+@app.command(
+    annotations=Destructive | Idempotent,
+    human_in_the_loop=True,
+    danger_level="medium",
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "stats", "when": "verify organization results"}],
+)
 @dry_run_support
 def organize(
     ctx: typer.Context,
@@ -155,7 +166,12 @@ def organize(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(
+    paginated=True,
+    annotations=ReadOnly,
+    capabilities=["fs:read"],
+    handoffs=[{"command": "organize", "when": "reorganize after identifying duplicates"}],
+)
 def duplicates(
     directory: Annotated[str, Argument(help="Directory to scan for duplicates")],
     *,
@@ -185,7 +201,12 @@ def duplicates(
     return results
 
 
-@app.command(annotations=Destructive | Idempotent, danger_level="medium")
+@app.command(
+    annotations=Destructive | Idempotent,
+    danger_level="medium",
+    capabilities=["fs:read", "fs:write"],
+    handoffs=[{"command": "stats", "when": "verify rename results"}],
+)
 @dry_run_support
 def rename(
     ctx: typer.Context,
@@ -229,7 +250,10 @@ def rename(
     }
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    capabilities=["fs:read"],
+)
 def stats(
     directory: Annotated[str, Argument(help="Directory to analyze")],
     *,

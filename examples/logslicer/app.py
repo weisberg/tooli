@@ -28,6 +28,7 @@ app = Tooli(
     task_group="Query",
     pipe_input={"format": "text"},
     pipe_output={"format": "json"},
+    capabilities=["fs:read"],
 )
 def parse(
     source: Annotated[StdinOr[str], Argument(help="Log source (file, URL, or '-')")],
@@ -55,6 +56,7 @@ def parse(
     task_group="Analysis",
     pipe_input={"format": "text"},
     pipe_output={"format": "json"},
+    capabilities=["fs:read"],
 )
 def stats(
     source: Annotated[StdinOr[str], Argument(help="Log source")],

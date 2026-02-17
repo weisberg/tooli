@@ -517,6 +517,47 @@ class Tooli(typer.Typer):
             command_span.set_outcome(exit_code=1, error_category="internal", duration_ms=otel_duration_ms(start))
             return TooliResult.from_tool_error(internal_err, meta=meta)
 
+    def stream(self, command_name: str, **kwargs: Any) -> Any:
+        """Invoke a command and yield individual ``TooliResult`` items.
+
+        For commands that return a list, each element is yielded as a
+        separate ``TooliResult(ok=True, result=item)``.  Non-list results
+        are yielded as a single ``TooliResult``.  Errors are yielded as
+        a single ``TooliResult(ok=False, ...)``.
+
+        Returns an ``Iterator[TooliResult]``.
+        """
+        from tooli.python_api import TooliResult
+
+        result = self.call(command_name, **kwargs)
+        if not result.ok:
+            yield result
+            return
+
+        if isinstance(result.result, list):
+            for item in result.result:
+                yield TooliResult(ok=True, result=item, meta=result.meta)
+        else:
+            yield result
+
+    async def astream(self, command_name: str, **kwargs: Any) -> Any:
+        """Async variant of ``stream()``.
+
+        Yields individual ``TooliResult`` items asynchronously.
+        """
+        from tooli.python_api import TooliResult
+
+        result = await self.acall(command_name, **kwargs)
+        if not result.ok:
+            yield result
+            return
+
+        if isinstance(result.result, list):
+            for item in result.result:
+                yield TooliResult(ok=True, result=item, meta=result.meta)
+        else:
+            yield result
+
     def list_commands(self, ctx: click.Context | None = None) -> list[str]:
         """Override click help output to use transformed command names."""
         del ctx

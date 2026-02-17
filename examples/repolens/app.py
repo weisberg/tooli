@@ -23,6 +23,7 @@ app = Tooli(
     when_to_use="Get a high-level overview of a codebase including file counts, sizes, and key files",
     task_group="Analysis",
     pipe_output={"format": "json"},
+    capabilities=["fs:read"],
 )
 def summary(
     root: Annotated[Path, Argument(help="Root directory to scan")] = Path("."),
@@ -73,6 +74,7 @@ def summary(
     when_to_use="List all files in a repository with their sizes and modification times",
     task_group="Query",
     pipe_output={"format": "json"},
+    capabilities=["fs:read"],
 )
 def inventory(
     root: Annotated[Path, Argument(help="Root directory to scan")] = Path("."),

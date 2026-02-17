@@ -68,7 +68,10 @@ def _write_dotenv(path: str, data: dict[str, str]) -> None:
     Path(path).write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    capabilities=["fs:read", "env:read"],
+)
 def get(
     name: Annotated[str, Argument(help="Variable name")],
     *,
@@ -94,7 +97,13 @@ def get(
     )
 
 
-@app.command(name="set", annotations=Destructive, auth=["env:write"])
+@app.command(
+    name="set",
+    annotations=Destructive,
+    auth=["env:write"],
+    capabilities=["fs:read", "fs:write", "env:write"],
+    handoffs=[{"command": "get", "when": "verify the value was set"}, {"command": "validate", "when": "verify environment is still valid"}],
+)
 def set_(
     ctx: typer.Context,
     name: Annotated[str, Argument(help="Variable name")],
@@ -125,7 +134,13 @@ def set_(
     }
 
 
-@app.command(name="list", paginated=True, annotations=ReadOnly)
+@app.command(
+    name="list",
+    paginated=True,
+    annotations=ReadOnly,
+    capabilities=["fs:read", "env:read"],
+    handoffs=[{"command": "get", "when": "read a specific variable's value"}],
+)
 def list_(
     *,
     env_file: Annotated[str, Option(help="Dotenv file path")] = ".env",
@@ -148,7 +163,11 @@ def list_(
     return results
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    capabilities=["fs:read", "env:read"],
+    handoffs=[{"command": "export", "when": "export validated environment to a file"}],
+)
 def validate(
     *,
     env_file: Annotated[str, Option(help="Dotenv file path")] = ".env",
@@ -182,7 +201,10 @@ def validate(
     }
 
 
-@app.command(annotations=ReadOnly)
+@app.command(
+    annotations=ReadOnly,
+    capabilities=["fs:read", "env:read"],
+)
 def export(
     *,
     env_file: Annotated[str, Option(help="Dotenv file path")] = ".env",

@@ -19,6 +19,7 @@ app = Tooli(
     examples=[
         {"args": ["profile", "data.csv"], "description": "Profile a local CSV file"},
     ],
+    capabilities=["fs:read"],
 )
 def profile(
     source: Annotated[StdinOr[str], Argument(help="Data source (file, URL, or '-')")],
@@ -37,6 +38,7 @@ def profile(
 
 @app.command(
     annotations=ReadOnly,
+    capabilities=["fs:read"],
 )
 def infer_schema(
     source: Annotated[StdinOr[str], Argument(help="Data source")],

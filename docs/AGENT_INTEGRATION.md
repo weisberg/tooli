@@ -151,6 +151,76 @@ When tooli detects `TOOLI_CALLER` in the environment:
 4. **No interactive prompts** — confirmations that would block a pipe are auto-skipped or return structured errors with `--yes` suggestions.
 5. **Tracing** — when `TOOLI_SESSION_ID` is provided, it appears in telemetry and log output, making it easy to correlate multiple CLI calls within one agent task.
 
+## Python API (In-Process)
+
+When your agent is written in Python, you can skip the CLI entirely and call tooli commands directly via `app.call()`, `app.stream()`, and their async variants.
+
+### Basic Usage
+
+```python
+from examples.docq.app import app
+
+# Single invocation — returns TooliResult
+result = app.call("stats", path="README.md")
+if result.ok:
+    data = result.result  # typed dict
+else:
+    print(result.error.message)
+    print(result.error.suggestion)
+```
+
+### Streaming
+
+```python
+# Iterate individual items from a list-returning command
+for item in app.stream("headings", path="README.md"):
+    if item.ok:
+        print(item.result)
+```
+
+### Async
+
+```python
+import asyncio
+
+async def main():
+    result = await app.acall("stats", path="README.md")
+    print(result.unwrap())
+
+    async for item in app.astream("headings", path="README.md"):
+        print(item.result)
+
+asyncio.run(main())
+```
+
+### Building Tool Definitions
+
+```python
+from tooli.schema import generate_tool_schema
+
+tools = []
+for tool_def in app.get_tools():
+    if tool_def.hidden:
+        continue
+    schema = generate_tool_schema(tool_def.callback, name=tool_def.name)
+    tools.append({
+        "name": schema.name,
+        "description": schema.description,
+        "input_schema": schema.parameters,
+    })
+```
+
+### Framework Examples
+
+Full integration examples are available under `examples/integrations/`:
+
+| File | Framework | Approach |
+|---|---|---|
+| `claude_sdk_example.py` | Claude Agent SDK | app.call() + subprocess |
+| `openai_agents_example.py` | OpenAI Agents SDK | app.call() + subprocess |
+| `langchain_example.py` | LangChain / LangGraph | StructuredTool + subprocess |
+| `google_adk_example.py` | Google ADK | FunctionDeclaration + subprocess |
+
 ## Legacy: TOOLI_AGENT_MODE
 
 The boolean `TOOLI_AGENT_MODE=true` flag is still supported for backward compatibility. It triggers agent-mode output but provides no caller identification, version tracking, or session correlation. Prefer `TOOLI_CALLER` for new integrations.

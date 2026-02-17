@@ -91,7 +91,7 @@ def _infer_type(values: list[str]) -> str:
     return "str"
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly, capabilities=["fs:read"])
 def inspect(
     source: Annotated[str, Argument(help="CSV file or '-' for stdin")],
     *,
@@ -132,7 +132,7 @@ def inspect(
     }
 
 
-@app.command(paginated=True, annotations=ReadOnly)
+@app.command(paginated=True, annotations=ReadOnly, capabilities=["fs:read"])
 def query(
     source: Annotated[str, Argument(help="CSV file or '-' for stdin")],
     *,
@@ -186,7 +186,7 @@ def query(
     return rows
 
 
-@app.command(annotations=OpenWorld)
+@app.command(annotations=OpenWorld, capabilities=["fs:read"])
 def convert(
     source: Annotated[str, Argument(help="CSV file or '-' for stdin")],
     *,
@@ -210,7 +210,7 @@ def convert(
     }
 
 
-@app.command(annotations=ReadOnly)
+@app.command(annotations=ReadOnly, capabilities=["fs:read"])
 def validate(
     source: Annotated[str, Argument(help="CSV file or '-' for stdin")],
     *,
@@ -245,7 +245,7 @@ def validate(
     }
 
 
-@app.command(annotations=OpenWorld)
+@app.command(annotations=OpenWorld, capabilities=["fs:read"])
 def merge(
     left: Annotated[str, Argument(help="Left CSV file path")],
     right: Annotated[str, Argument(help="Right CSV file path")],
