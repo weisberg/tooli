@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-02-17
+
+### Added
+- **Python API**: `app.call(command_name, **kwargs)` for direct in-process command invocation returning typed `TooliResult` objects. Bypasses CLI parsing while preserving validation, error handling, telemetry, and recording.
+- **Async Python API**: `app.acall()` awaits async commands directly, threads sync commands via `asyncio.to_thread()`.
+- **Streaming API**: `app.stream()` yields individual `TooliResult` items from list-returning commands. `app.astream()` for async iteration.
+- **`TooliResult[T]` / `TooliError`**: Frozen generic dataclasses mirroring the CLI JSON envelope as typed Python objects. `unwrap()` raises the appropriate `ToolError` subclass on failure.
+- **`get_command(name)`**: Look up command callbacks by name (hyphen/underscore normalized).
+- **`CallerCategory.PYTHON_API`**: Enum value identifying in-process Python API calls in telemetry.
+- **Capabilities metadata**: `capabilities=[...]` parameter on `@app.command()` for declaring granular permissions (e.g., `["fs:read", "fs:write"]`). Rendered in SKILL.md, AGENTS.md, CLAUDE.md, manifest, and schema.
+- **Security enforcement**: `TOOLI_ALLOWED_CAPABILITIES` environment variable in STRICT security policy mode blocks commands with undeclared capabilities. Supports wildcard matching (`fs:*`).
+- **Handoffs metadata**: `handoffs=[{"command": "...", "when": "..."}]` for multi-agent workflow orchestration. Rendered in SKILL.md composition patterns and AGENTS.md.
+- **Delegation hints**: `delegation_hint="..."` for agent-facing guidance on when to delegate to a command.
+- **Error field mapping**: `field` parameter on all `ToolError` subclasses links errors to specific input parameters. Preserved through `TooliError` → `to_exception()` roundtrip.
+- **Output schema in envelope**: `output_schema` field in `EnvelopeMeta` when `--response-format detailed` or `TOOLI_INCLUDE_SCHEMA=true`.
+- **AGENTS.md generator**: `generate-agents-md` builtin produces GitHub Copilot / OpenAI Codex compatible documentation.
+- **Agent SDK integration examples**: `examples/integrations/` with 4 framework examples (Claude SDK, OpenAI Agents, LangChain, Google ADK) using both Python API and subprocess approaches.
+- **v5 metadata on all 18 example apps**: `capabilities` on all 65 commands, `handoffs` and `delegation_hint` on 6 priority apps.
+- **Python API section in AGENT_INTEGRATION.md**: Documentation for `app.call()`, `app.stream()`, and framework integration patterns.
+- **120+ new tests** across 8 test files. Total: 529+ tests.
+
+### Changed
+- `EnvelopeMeta` now includes optional `output_schema` field.
+- `CommandMeta` now includes `capabilities`, `handoffs`, `delegation_hint` fields.
+- `ToolSchema` includes `capabilities`, `handoffs`, `delegation_hint`.
+- Manifest renders capabilities, handoffs, and delegation hints per command.
+- `ToolError.to_dict()` conditionally includes `field` when not None.
+
 ## [4.1.0] - 2026-02-17
 
 ### Added
@@ -137,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[5.0.0]: https://github.com/weisberg/tooli/releases/tag/v5.0.0
 [4.1.0]: https://github.com/weisberg/tooli/releases/tag/v4.1.0
 [4.0.0]: https://github.com/weisberg/tooli/releases/tag/v4.0.0
 [3.0.0]: https://github.com/weisberg/tooli/releases/tag/v3.0.0
