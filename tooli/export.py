@@ -266,8 +266,10 @@ def _collect_commands(app: Any, command: str | None = None) -> list[_ExportComma
         return commands
 
     wanted = command.strip()
+    wanted_normalized = wanted.replace("-", "_").replace("_", "-")
     for item in commands:
-        if item.name == wanted:
+        normalized = item.name.replace("-", "_").replace("_", "-")
+        if item.name == wanted or normalized == wanted_normalized:
             return [item]
 
     available = ", ".join(sorted(cmd.name for cmd in commands))

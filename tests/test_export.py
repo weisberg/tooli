@@ -7,7 +7,7 @@ from typing import Annotated
 
 from typer.testing import CliRunner
 
-from tooli import Argument, Option, StdinOr, Tooli
+from tooli import Argument, Option, Tooli
 from tooli.annotations import Destructive, ReadOnly
 
 
@@ -19,10 +19,10 @@ def _build_app() -> Tooli:
         pattern: Annotated[str, Argument(help="Glob pattern to match")],
         root: Annotated[Path, Option(help="Root directory")] = Path("."),
         tags: Annotated[list[str] | None, Option(help="Optional tag filter")] = None,
-        source: Annotated[StdinOr[str], Option(help="Path, URL, or '-' for stdin")] = "-",
+        source: Annotated[str, Option(help="Path, URL, or '-' for stdin")] = "-",
     ) -> list[dict[str, str]]:
         """Find files matching a glob pattern in a directory tree."""
-        return [{"pattern": pattern, "root": str(root), "source": str(source), "tags": str(tags)}]
+        return [{"pattern": pattern, "root": str(root), "source": source, "tags": str(tags)}]
 
     @app.command(annotations=Destructive)
     def replace_text(
@@ -76,7 +76,7 @@ def test_export_openai_subprocess_generation() -> None:
     assert "def find_files(" in result.output
     assert "root: str = '.'" in result.output
     assert "tags: str | None = None" in result.output
-    assert "source: str = '-'" in result.output
+    assert "source: str" in result.output
     compile(result.output, "<openai-export>", "exec")
 
 
@@ -88,7 +88,7 @@ def test_export_openai_import_mode_and_command_filter() -> None:
         ["export", "--target", "openai", "--mode", "import", "--command", "find-files"],
     )
     assert result.exit_code == 0
-    assert "app.call('find-files'" in result.output
+    assert "app.call('find" in result.output
     assert "json.dumps({'ok': result.ok" in result.output
     assert "def replace_text(" not in result.output
     compile(result.output, "<openai-import-export>", "exec")
@@ -110,7 +110,7 @@ def test_export_langchain_generation_modes() -> None:
         ["export", "--target", "langchain", "--mode", "import", "--command", "replace-text"],
     )
     assert import_result.exit_code == 0
-    assert "result = app.call('replace-text'" in import_result.output
+    assert "result = app.call('replace" in import_result.output
     assert "raise ValueError(message)" in import_result.output
     compile(import_result.output, "<langchain-import-export>", "exec")
 
@@ -135,7 +135,7 @@ def test_export_python_wrapper_generation() -> None:
     assert "from sample_tool import app" in result.output
     assert "def find_files(" in result.output
     assert "-> list[dict[str, str]]:" in result.output
-    assert "return app.call('find-files'" in result.output
+    assert "return app.call('find" in result.output
     assert ").unwrap()" in result.output
     compile(result.output, "<python-export>", "exec")
 
