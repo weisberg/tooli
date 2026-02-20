@@ -648,8 +648,22 @@ class Tooli(typer.Typer):
             validate: bool = typer.Option(False, help="Validate generated SKILL content before writing."),
             infer_workflows: bool = typer.Option(False, help="Infer workflow patterns in generated docs."),
         ) -> None:
-            """Generate SKILL.md for this application."""
+            """Generate SKILL.md for this application.
+
+            .. deprecated:: 6.0
+                This command will be removed in v7.0. Use the ``tooli-docs``
+                package instead: ``pip install tooli-docs && tooli-docs skill <app>``.
+            """
+            import warnings
+
             import click
+
+            warnings.warn(
+                "generate-skill is deprecated in tooli v6.0 and will be "
+                "removed in v7.0. Use `pip install tooli-docs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
             from tooli.docs.claude_md import generate_claude_md
             from tooli.docs.skill_v4 import generate_skill_md as generate_skill_v4
@@ -706,8 +720,21 @@ class Tooli(typer.Typer):
                 help="Output file path",
             ),
         ) -> None:
-            """Generate AGENTS.md for this application."""
+            """Generate AGENTS.md for this application.
+
+            .. deprecated:: 6.0
+                Use the ``tooli-docs`` package instead.
+            """
+            import warnings
+
             import click
+
+            warnings.warn(
+                "generate-agents-md is deprecated in tooli v6.0 and will be "
+                "removed in v7.0. Use `pip install tooli-docs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
             from tooli.docs.agents_md import generate_agents_md
 
@@ -735,8 +762,21 @@ class Tooli(typer.Typer):
         def generate_claude_md_command(
             output_path: str = typer.Option("CLAUDE.md", "--output-path", "--output", help="Output file path"),
         ) -> None:
-            """Generate CLAUDE.md for this application."""
+            """Generate CLAUDE.md for this application.
+
+            .. deprecated:: 6.0
+                Use the ``tooli-docs`` package instead.
+            """
+            import warnings
+
             import click
+
+            warnings.warn(
+                "generate-claude-md is deprecated in tooli v6.0 and will be "
+                "removed in v7.0. Use `pip install tooli-docs` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
             from tooli.docs.claude_md import generate_claude_md
 
@@ -764,8 +804,21 @@ class Tooli(typer.Typer):
                 help="Export mode: subprocess|import",
             ),
         ) -> None:
-            """Generate framework-specific integration code."""
+            """Generate framework-specific integration code.
+
+            .. deprecated:: 6.0
+                Use the ``tooli-export`` package instead.
+            """
+            import warnings
+
             import click
+
+            warnings.warn(
+                "export is deprecated in tooli v6.0 and will be "
+                "removed in v7.0. Use `pip install tooli-export` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
             from tooli.export import ExportMode, ExportTarget, generate_export
 
@@ -963,13 +1016,13 @@ class Tooli(typer.Typer):
 
                 click.echo(handle.read())
 
-        # Eval utilities
-        eval_app = typer.Typer(name="eval", help="Evaluation tooling")
+        # Eval utilities (deprecated in v6.0, removed in v7.0)
+        eval_app = typer.Typer(name="eval", help="Evaluation tooling (deprecated)", hidden=True)
         self.add_typer(eval_app)
 
         @eval_app.command(name="analyze", cls=TooliCommand)
         def eval_analyze(log_path: str | None = None) -> dict[str, Any]:
-            """Analyze invocation logs produced by Tooli(record=True) or TOOLI_RECORD."""
+            """Analyze invocation logs (deprecated in v6.0)."""
             from tooli.eval.analyzer import analyze_invocations
 
             default_path = os.getenv("TOOLI_RECORD")
@@ -994,7 +1047,7 @@ class Tooli(typer.Typer):
             output: str | None = None,
             output_path: str | None = None,
         ) -> dict[str, Any]:
-            """Run a minimal synthetic harness to validate agent-facing behavior."""
+            """Run agent behavior tests (deprecated in v6.0)."""
             import json
 
             import click
@@ -1033,11 +1086,8 @@ class Tooli(typer.Typer):
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
-        pipe_input: dict[str, Any] | None = None,
-        pipe_output: dict[str, Any] | None = None,
         when_to_use: str | None = None,
         expected_outputs: list[dict[str, Any]] | None = None,
-        recovery_playbooks: dict[str, list[str]] | None = None,
         task_group: str | None = None,
         capabilities: list[str] | None = None,
         handoffs: list[dict[str, str]] | None = None,
@@ -1143,11 +1193,8 @@ class Tooli(typer.Typer):
                 deprecated=deprecated,
                 deprecated_message=deprecated_message,
                 secret_params=secret_params,
-                pipe_input=pipe_input,
-                pipe_output=pipe_output,
                 when_to_use=when_to_use,
                 expected_outputs=expected_outputs or [],
-                recovery_playbooks=recovery_playbooks or {},
                 task_group=task_group,
                 capabilities=capabilities or [],
                 handoffs=handoffs or [],

@@ -176,11 +176,8 @@ class Tooli:
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
-        pipe_input: dict[str, Any] | None = None,
-        pipe_output: dict[str, Any] | None = None,
         when_to_use: str | None = None,
         expected_outputs: list[dict[str, Any]] | None = None,
-        recovery_playbooks: dict[str, list[str]] | None = None,
         task_group: str | None = None,
         capabilities: list[str] | None = None,
         handoffs: list[dict[str, str]] | None = None,
@@ -203,11 +200,8 @@ class Tooli:
         _ = output_example
         _ = deprecated
         _ = deprecated_message
-        _ = pipe_input
-        _ = pipe_output
         _ = when_to_use
         _ = expected_outputs
-        _ = recovery_playbooks
         _ = task_group
         version_kwargs = kwargs
 
@@ -240,11 +234,8 @@ class Tooli:
                 deprecated=deprecated,
                 deprecated_message=deprecated_message,
                 error_codes=error_codes or {},
-                pipe_input=pipe_input,
-                pipe_output=pipe_output,
                 when_to_use=when_to_use,
                 expected_outputs=expected_outputs or [],
-                recovery_playbooks=recovery_playbooks or {},
                 task_group=task_group,
                 capabilities=capabilities or [],
                 handoffs=handoffs or [],

@@ -53,7 +53,7 @@ def eval_coverage(app: Any) -> dict[str, Any]:
         has_help = bool((tool_def.help or tool_def.callback.__doc__ or "").strip())
         has_when_to_use = bool(meta.when_to_use)
         has_task_group = bool(meta.task_group)
-        has_pipes = bool(meta.pipe_input or meta.pipe_output)
+        has_pipes = False  # pipe contracts removed in v6.0
 
         if has_examples:
             with_examples += 1

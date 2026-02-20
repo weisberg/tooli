@@ -10,8 +10,17 @@ from collections.abc import Mapping  # noqa: TC003
 from typing import Any, Literal, get_args, get_origin
 
 from tooli.command_meta import get_command_meta
-from tooli.pipes import pipe_contracts_compatible
 from tooli.schema import generate_tool_schema
+
+
+def pipe_contracts_compatible(
+    output: dict[str, Any] | None,
+    input_: dict[str, Any] | None,
+) -> bool:
+    """Legacy stub — pipe contracts removed in v6.0."""
+    if output is None or input_ is None:
+        return False
+    return output.get("format") == input_.get("format")
 
 DetailLevel = Literal["auto", "full", "summary"]
 TargetFormat = Literal["generic-skill", "claude-skill", "claude-code"]
@@ -520,7 +529,7 @@ class SkillV4Generator:
         return lines
 
     def _error_recovery_section(self, tool_def: Any, meta: Any, heading_level: str) -> list[str]:
-        has_playbooks = bool(meta.recovery_playbooks)
+        has_playbooks = bool(getattr(meta, "recovery_playbooks", None))
         has_error_codes = bool(meta.error_codes)
         if not has_playbooks and not has_error_codes:
             return []
@@ -528,7 +537,7 @@ class SkillV4Generator:
         lines = [f"{heading_level}# If Something Goes Wrong", ""]
 
         if has_playbooks:
-            for error_key, steps in meta.recovery_playbooks.items():
+            for error_key, steps in getattr(meta, "recovery_playbooks", {}).items():
                 lines.append(f"**{error_key}**:")
                 for step in steps:
                     lines.append(f"  1. {step}")
@@ -569,7 +578,7 @@ class SkillV4Generator:
                 if left.name == right.name:
                     continue
                 right_meta = get_command_meta(right.callback)
-                if pipe_contracts_compatible(left_meta.pipe_output, right_meta.pipe_input):
+                if pipe_contracts_compatible(getattr(left_meta, "pipe_output", None), getattr(right_meta, "pipe_input", None)):
                     label = f"Pipe {left.name} into {right.name}"
                     line = f"{self._tool_name} {left.name} --json | {self._tool_name} {right.name} --json"
                     patterns.append((label, [line]))
@@ -667,7 +676,6 @@ class SkillV4Generator:
             "| `--response-format concise\\|detailed` | Choose machine-readable response shape. |",
             "| `--help-agent` | Emit structured YAML help metadata. |",
             "| `--agent-manifest` | Emit machine-readable manifest. |",
-            "| `--agent-bootstrap` | Generate deployable SKILL.md and exit. |",
             "",
         ]
         return lines

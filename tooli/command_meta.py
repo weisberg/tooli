@@ -52,12 +52,9 @@ class CommandMeta:
     output_schema: dict[str, Any] | None = None
     secret_params: list[str] = field(default_factory=list)
 
-    # v4 fields
-    pipe_input: dict[str, Any] | None = None
-    pipe_output: dict[str, Any] | None = None
+    # v4 fields (pipe_input/pipe_output removed in v6.0)
     when_to_use: str | None = None
     expected_outputs: list[dict[str, Any]] = field(default_factory=list)
-    recovery_playbooks: dict[str, list[str]] = field(default_factory=dict)
     task_group: str | None = None
 
     # v5 fields

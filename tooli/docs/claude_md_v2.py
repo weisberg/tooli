@@ -108,7 +108,7 @@ def generate_claude_md_v2(app: Any) -> str:
         "- Use `--json` for machine-readable output.",
         "- Use `--dry-run` before destructive operations.",
         "- Use `--schema` to inspect parameters and output contracts.",
-        "- Use `--agent-bootstrap` to regenerate SKILL.md.",
+        "- Use `generate-skill` to regenerate SKILL.md.",
         "",
     ])
 

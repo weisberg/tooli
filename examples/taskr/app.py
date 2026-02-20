@@ -73,7 +73,6 @@ def _find_task(tasks: list[dict[str, Any]], task_id: str) -> dict[str, Any] | No
     error_codes={"E9001": "Invalid priority value"},
     when_to_use="Create a new task with a title, priority, and optional tags",
     task_group="Mutation",
-    recovery_playbooks={"E9001": ["Check valid priorities: low, medium, high", "Retry with a corrected priority value"]},
     capabilities=["fs:read", "fs:write"],
     handoffs=[{"command": "list", "when": "verify the task was created"}],
 )
@@ -134,7 +133,6 @@ def add(
     version="1.0",
     when_to_use="View tasks with optional filtering by status or priority",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
     handoffs=[{"command": "done", "when": "mark a displayed task as complete"}, {"command": "edit", "when": "modify a displayed task"}],
 )
@@ -274,7 +272,6 @@ def edit(
     error_codes={"E9006": "No completed tasks to purge"},
     when_to_use="Permanently delete all completed tasks to clean up the task store",
     task_group="Mutation",
-    recovery_playbooks={"E9006": ["Run 'list --status-filter done' to verify completed tasks exist", "Mark tasks as done first with the 'done' command"]},
     capabilities=["fs:read", "fs:write", "fs:delete"],
     handoffs=[{"command": "list", "when": "verify remaining tasks after purge"}],
 )

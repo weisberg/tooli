@@ -48,7 +48,7 @@ class TestClaudeMdV2:
     def test_contains_key_patterns(self):
         content = generate_claude_md_v2(_make_app())
         assert "## Key Patterns" in content
-        assert "--agent-bootstrap" in content
+        assert "generate-skill" in content
 
     def test_contains_dev_workflow(self):
         content = generate_claude_md_v2(_make_app())

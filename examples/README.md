@@ -9,7 +9,7 @@ Every app in this directory adheres to these principles:
 1. **Discoverable** -- Use `--schema` to see exactly what the tool can do, or `--agent-bootstrap` for a complete SKILL.md
 2. **Predictable** -- Use `--json` or `--jsonl` for stable, machine-readable output
 3. **Safe** -- Destructive operations require `--yes` and support `--dry-run`
-4. **Actionable** -- Errors include `suggestions` and `recovery_playbooks` that help agents self-correct
+4. **Actionable** -- Errors include `suggestions` that help agents self-correct
 5. **Universal** -- `StdinOr[T]` makes files, URLs, and pipes interchangeable
 6. **Composable** -- `PipeContract` declares input/output formats for chaining commands
 
@@ -51,7 +51,7 @@ python examples/docq/app.py --help
 
 | App | Description | Key Features |
 |---|---|---|
-| **[taskr](taskr/)** | Local task manager with JSON storage | Idempotent, Destructive, paginated CRUD, v4 recovery playbooks |
+| **[taskr](taskr/)** | Local task manager with JSON storage | Idempotent, Destructive, paginated CRUD |
 | **[proj](proj/)** | Project scaffolder with templates | Destructive, DryRunRecorder, Idempotent validation |
 | **[envar](envar/)** | Environment & secrets manager | SecretInput, AuthContext scopes, mixed annotations |
 | **[imgsort](imgsort/)** | Image organizer by metadata | Destructive+Idempotent, DryRunRecorder, batch operations |

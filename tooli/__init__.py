@@ -1,4 +1,4 @@
-"""tooli — The agent-native CLI framework for Python."""
+"""tooli — The lean agent-native CLI framework for Python."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from tooli.app_native import Tooli as _NativeTooli
 from tooli.detect import CallerCategory, ExecutionContext, detect_execution_context
 from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
 from tooli.input import SecretInput, StdinOr
-from tooli.pipes import PipeContract
 from tooli.python_api import TooliError, TooliResult
 from tooli.versioning import VersionFilter, compare_versions
 
@@ -32,7 +31,7 @@ class Tooli:
         return _TyperTooli(*args, backend=backend, **kwargs)
 
 
-__version__ = "5.0.1"
+__version__ = "6.0.0"
 __all__ = [
     "Annotated",
     "Argument",
@@ -45,7 +44,6 @@ __all__ = [
     "record_dry_action",
     "VersionFilter",
     "compare_versions",
-    "PipeContract",
     "CallerCategory",
     "ExecutionContext",
     "detect_execution_context",

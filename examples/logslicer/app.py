@@ -26,8 +26,6 @@ app = Tooli(
     ],
     when_to_use="Convert raw log files into structured JSON events for analysis or filtering",
     task_group="Query",
-    pipe_input={"format": "text"},
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def parse(
@@ -54,8 +52,6 @@ def parse(
     annotations=ReadOnly,
     when_to_use="Get a quick summary of log entry counts and error distribution",
     task_group="Analysis",
-    pipe_input={"format": "text"},
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def stats(

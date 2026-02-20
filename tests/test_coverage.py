@@ -19,7 +19,6 @@ def _make_app(*, full_metadata=False):
             "error_codes": {"E3001": "Not found -> Try broader filter"},
             "when_to_use": "List all items",
             "task_group": "Query",
-            "pipe_output": {"format": "json"},
         }
 
     @app.command("list-items", **kwargs)

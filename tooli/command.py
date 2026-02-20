@@ -1063,13 +1063,6 @@ class TooliCommand(TyperCommand):
                     expose_value=False,
                     callback=_capture_tooli_flags,
                 ),
-                click.Option(
-                    ["--agent-bootstrap"],
-                    is_flag=True,
-                    help="Generate deployable SKILL.md and exit.",
-                    expose_value=False,
-                    callback=_capture_tooli_flags,
-                ),
             ]
         )
 
@@ -1309,12 +1302,6 @@ class TooliCommand(TyperCommand):
             idempotency_key=ctx.meta.get("tooli_flag_idempotency_key"),
             response_format=resolve_response_format(ctx).value,
         )
-
-        if bool(ctx.meta.get("tooli_flag_agent_bootstrap", False)):
-            from tooli.bootstrap import generate_bootstrap
-
-            click.echo(generate_bootstrap(cb_meta.app))
-            return None
 
         if bool(ctx.meta.get("tooli_flag_help_agent", False)):
             click.echo(self._render_help_agent_output(ctx))

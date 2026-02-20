@@ -24,7 +24,6 @@ app = Tooli(
     ],
     when_to_use="Diagnose local environment issues before running builds or deployments",
     task_group="Analysis",
-    pipe_output={"format": "json"},
     capabilities=["env:read", "process:exec"],
 )
 def check(

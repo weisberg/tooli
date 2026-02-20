@@ -22,7 +22,6 @@ app = Tooli(
     ],
     when_to_use="Get a high-level overview of a codebase including file counts, sizes, and key files",
     task_group="Analysis",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def summary(
@@ -73,7 +72,6 @@ def summary(
     annotations=ReadOnly,
     when_to_use="List all files in a repository with their sizes and modification times",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def inventory(

@@ -67,8 +67,6 @@ def _read_source(source: str) -> tuple[str, str]:
     },
     when_to_use="Get word/line/character counts for a document before summarizing or comparing documents",
     task_group="Analysis",
-    pipe_input={"format": "text"},
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def stats(
@@ -103,7 +101,6 @@ def stats(
     annotations=ReadOnly,
     when_to_use="Extract the outline or table of contents from a markdown document",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
     handoffs=[{"command": "extract", "when": "need to extract a specific section from the document"}],
 )
@@ -136,7 +133,6 @@ def headings(
     max_tokens=8000,
     when_to_use="Find lines matching a pattern in a document, similar to grep but with structured output",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
     handoffs=[{"command": "extract", "when": "want to extract the section containing search matches"}],
 )
@@ -181,7 +177,6 @@ def search(
     annotations=ReadOnly,
     when_to_use="Extract all hyperlinks from a markdown document for validation or indexing",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def links(
@@ -221,7 +216,6 @@ def links(
     annotations=ReadOnly,
     when_to_use="Pull out a specific section or line range from a document for focused analysis",
     task_group="Query",
-    pipe_output={"format": "json"},
     capabilities=["fs:read"],
 )
 def extract(

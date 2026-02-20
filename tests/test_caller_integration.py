@@ -139,11 +139,11 @@ class TestManifestCallerConvention:
         assert conv["session_var"] == "TOOLI_SESSION_ID"
         assert conv["detect_command"] == "detect-context"
 
-    def test_manifest_global_flags_include_agent_bootstrap(self):
+    def test_manifest_global_flags_include_schema(self):
         from tooli.manifest import generate_agent_manifest
         app = _make_app()
         manifest = generate_agent_manifest(app)
-        assert "--agent-bootstrap" in manifest["global_flags"]
+        assert "--schema" in manifest["global_flags"]
 
 
 # ---------------------------------------------------------------------------
