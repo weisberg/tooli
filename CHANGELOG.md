@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] - 2026-02-20
+
+### Fixed
+- Add `typer>=0.9` to core dependencies (was incorrectly listed as optional, causing `ModuleNotFoundError` on fresh installs).
+
 ## [5.0.0] - 2026-02-17
 
 ### Added
