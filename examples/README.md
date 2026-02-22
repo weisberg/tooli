@@ -6,12 +6,12 @@ This directory contains complete CLI applications built with Tooli, demonstratin
 
 Every app in this directory adheres to these principles:
 
-1. **Discoverable** -- Use `--schema` to see exactly what the tool can do, or `--agent-bootstrap` for a complete SKILL.md
+1. **Discoverable** -- Use `--schema` to see exactly what the tool can do
 2. **Predictable** -- Use `--json` or `--jsonl` for stable, machine-readable output
 3. **Safe** -- Destructive operations require `--yes` and support `--dry-run`
 4. **Actionable** -- Errors include `suggestions` that help agents self-correct
 5. **Universal** -- `StdinOr[T]` makes files, URLs, and pipes interchangeable
-6. **Composable** -- `PipeContract` declares input/output formats for chaining commands
+6. **Composable** -- JSON/JSONL outputs and schemas allow deterministic chaining
 
 ---
 
@@ -100,10 +100,10 @@ python -m examples.docq.app stats nonexistent.md --json
 python -m examples.proj.app init my-project --template python --dry-run --json
 ```
 
-### 5. Generate a deployable SKILL.md (v4)
+### 5. Generate SKILL.md docs externally
 
 ```bash
-python -m examples.docq.app stats --agent-bootstrap
+tooli-docs skill examples/docq/app.py:app --output SKILL.md
 ```
 
 ### 6. Flip into MCP mode

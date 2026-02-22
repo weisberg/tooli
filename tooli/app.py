@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 import time
 from collections.abc import Callable  # noqa: TC003
@@ -17,7 +16,7 @@ from tooli.auth import AuthContext
 from tooli.backends.native import translate_marker
 from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
 from tooli.command_meta import CommandMeta, PromptMeta, ResourceMeta, get_command_meta
-from tooli.eval.recorder import build_invocation_recorder
+from tooli.recorder import build_invocation_recorder
 from tooli.input import SecretInput, is_secret_input
 from tooli.providers.local import LocalProvider
 from tooli.security.policy import resolve_security_policy
@@ -621,129 +620,6 @@ class Tooli(typer.Typer):
         return _wrap
 
     def _register_builtins(self) -> None:
-        @self.command(name="generate-skill", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
-        def generate_skill(
-            output_path: str | None = typer.Option(
-                "SKILL.md",
-                "--output-path",
-                help="Output file path",
-            ),
-            detail_level: str = typer.Option(
-                "auto",
-                help="Skill detail level: auto|summary|full",
-            ),
-            format_: str = typer.Option(
-                "claude-skill",
-                "--format",
-                help="Output format: skill|manifest|claude-skill|claude-md|agents-md",
-                show_default=True,
-            ),
-            target: str = typer.Option(
-                "generic-skill",
-                "--target",
-                help="Target format: generic-skill|claude-skill|claude-code",
-                show_default=True,
-            ),
-            validate: bool = typer.Option(False, help="Validate generated SKILL content before writing."),
-            infer_workflows: bool = typer.Option(False, help="Infer workflow patterns in generated docs."),
-        ) -> None:
-            """Generate SKILL.md for this application.
-
-            .. deprecated:: 6.0
-                This command will be removed in v7.0. Use the ``tooli-docs``
-                package instead: ``pip install tooli-docs && tooli-docs skill <app>``.
-            """
-            import warnings
-
-            import click
-
-            warnings.warn(
-                "generate-skill is deprecated in tooli v6.0 and will be "
-                "removed in v7.0. Use `pip install tooli-docs` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-            from tooli.docs.claude_md import generate_claude_md
-            from tooli.docs.skill_v4 import generate_skill_md as generate_skill_v4
-            from tooli.docs.skill_v4 import validate_skill_doc
-            from tooli.manifest import manifest_as_json
-            if detail_level not in {"auto", "summary", "full"}:
-                raise click.BadParameter("detail_level must be auto, summary, or full.")
-            if format_ not in {"skill", "manifest", "claude-skill", "claude-md", "agents-md"}:
-                raise click.BadParameter("format must be skill, manifest, claude-skill, claude-md, or agents-md.")
-            if target not in {"generic-skill", "claude-skill", "claude-code"}:
-                raise click.BadParameter("target must be generic-skill, claude-skill, or claude-code.")
-
-            if format_ == "manifest":
-                content = manifest_as_json(self)
-            elif format_ in {"skill", "claude-skill"}:
-                content = generate_skill_v4(
-                    self,
-                    detail_level=detail_level,
-                    infer_workflows=infer_workflows,
-                    target=target,
-                )
-            elif format_ == "claude-md":
-                content = generate_claude_md(self)
-            elif format_ == "agents-md":
-                from tooli.docs.agents_md import generate_agents_md
-
-                content = generate_agents_md(self)
-            else:
-                raise click.BadParameter("format must be skill, manifest, claude-skill, claude-md, or agents-md.")
-
-            if validate and format_ != "manifest":
-                validation = validate_skill_doc(content)
-                if not validation["valid"]:
-                    issues = "\n".join(
-                        issue["message"] for issue in validation.get("issues", [])
-                    )
-                    raise click.ClickException(f"Generated skill validation failed:\n{issues}")
-
-            if output_path == "-":
-                click.echo(content)
-            else:
-                if output_path is None:
-                    output_path = "SKILL.md" if format_ == "skill" else "CLAUDE.md"
-                with open(output_path, "w") as f:
-                    f.write(content)
-                click.echo(f"Generated {output_path}")
-
-        @self.command(name="generate-agents-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
-        def generate_agents_md_command(
-            output_path: str | None = typer.Option(
-                "AGENTS.md",
-                "--output-path",
-                help="Output file path",
-            ),
-        ) -> None:
-            """Generate AGENTS.md for this application.
-
-            .. deprecated:: 6.0
-                Use the ``tooli-docs`` package instead.
-            """
-            import warnings
-
-            import click
-
-            warnings.warn(
-                "generate-agents-md is deprecated in tooli v6.0 and will be "
-                "removed in v7.0. Use `pip install tooli-docs` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-            from tooli.docs.agents_md import generate_agents_md
-
-            content = generate_agents_md(self)
-            if output_path == "-":
-                click.echo(content)
-            else:
-                with open(output_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                click.echo(f"Generated {output_path}")
-
         @self.command(name="detect-context", cls=TooliCommand, hidden=True)  # type: ignore[untyped-decorator]
         def detect_context() -> dict[str, Any] | str:
             """Detect the current execution context (human, agent, CI, container)."""
@@ -755,98 +631,6 @@ class Tooli(typer.Typer):
             ctx = detect_execution_context()
             import json
             return json.loads(_format_json(ctx))
-
-        @self.command(name="generate-claude-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
-        def generate_claude_md_command(
-            output_path: str = typer.Option("CLAUDE.md", "--output-path", help="Output file path"),
-        ) -> None:
-            """Generate CLAUDE.md for this application.
-
-            .. deprecated:: 6.0
-                Use the ``tooli-docs`` package instead.
-            """
-            import warnings
-
-            import click
-
-            warnings.warn(
-                "generate-claude-md is deprecated in tooli v6.0 and will be "
-                "removed in v7.0. Use `pip install tooli-docs` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-            from tooli.docs.claude_md import generate_claude_md
-
-            content = generate_claude_md(self)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            click.echo(f"Generated {output_path}")
-
-        @self.command(name="export", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
-        def export_command(
-            target: str = typer.Option(
-                ...,
-                "--target",
-                help="Export target: openai|langchain|adk|python",
-                show_default=False,
-            ),
-            command: str | None = typer.Option(
-                None,
-                "--command",
-                help="Export only a single command by name.",
-            ),
-            mode: str = typer.Option(
-                "subprocess",
-                "--mode",
-                help="Export mode: subprocess|import",
-            ),
-        ) -> None:
-            """Generate framework-specific integration code.
-
-            .. deprecated:: 6.0
-                Use the ``tooli-export`` package instead.
-            """
-            import warnings
-
-            import click
-
-            warnings.warn(
-                "export is deprecated in tooli v6.0 and will be "
-                "removed in v7.0. Use `pip install tooli-export` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-            from tooli.export import ExportMode, ExportTarget, generate_export
-
-            try:
-                parsed_target = ExportTarget(target)
-            except ValueError as exc:
-                raise click.BadParameter(
-                    "target must be one of: openai, langchain, adk, python.",
-                    param_hint="--target",
-                ) from exc
-
-            try:
-                parsed_mode = ExportMode(mode)
-            except ValueError as exc:
-                raise click.BadParameter(
-                    "mode must be one of: subprocess, import.",
-                    param_hint="--mode",
-                ) from exc
-
-            try:
-                click.echo(
-                    generate_export(
-                        self,
-                        target=parsed_target,
-                        command=command,
-                        mode=parsed_mode,
-                    )
-                )
-            except ValueError as exc:
-                raise click.BadParameter(str(exc), param_hint="--command") from exc
 
         # MCP group
         mcp_app = typer.Typer(name="mcp", help="MCP server utilities", hidden=True)
@@ -1014,54 +798,6 @@ class Tooli(typer.Typer):
 
                 click.echo(handle.read())
 
-        # Eval utilities (deprecated in v6.0, removed in v7.0)
-        eval_app = typer.Typer(name="eval", help="Evaluation tooling (deprecated)", hidden=True)
-        self.add_typer(eval_app)
-
-        @eval_app.command(name="analyze", cls=TooliCommand)
-        def eval_analyze(log_path: str | None = None) -> dict[str, Any]:
-            """Analyze invocation logs (deprecated in v6.0)."""
-            from tooli.eval.analyzer import analyze_invocations
-
-            default_path = os.getenv("TOOLI_RECORD")
-            if self.invocation_recorder is not None:
-                default_path = str(self.invocation_recorder.path)
-            if log_path is None:
-                log_path = default_path
-            if isinstance(log_path, str) and not log_path.strip():
-                log_path = None
-
-            if log_path is None:
-                return {
-                    "error": "No log path provided. "
-                    "Set TOOLI_RECORD, pass eval analyze <path>, or run Tooli(record=True)."
-                }
-
-            return analyze_invocations(log_path)
-
-        @eval_app.command(name="agent-test", cls=typer.main.TyperCommand)
-        def eval_agent_test(
-            commands: str | None = None,
-            output: str | None = None,
-            output_path: str | None = None,
-        ) -> dict[str, Any]:
-            """Run agent behavior tests (deprecated in v6.0)."""
-            import json
-
-            import click
-
-            from tooli.eval.agent_test import run_agent_tests
-
-            command_names = [name.strip() for name in commands.split(",")] if commands else []
-            report = run_agent_tests(
-                app=self,
-                command_names=command_names or None,
-                output_path=output_path or output,
-            )
-            if output is None and output_path is None:
-                click.echo(json.dumps(report, indent=2, sort_keys=True))
-            return report
-
     def command(
         self,
         name: str | None = None,
@@ -1084,6 +820,7 @@ class Tooli(typer.Typer):
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
+        deprecated_version: str | None = None,
         when_to_use: str | None = None,
         expected_outputs: list[dict[str, Any]] | None = None,
         task_group: str | None = None,
@@ -1190,6 +927,7 @@ class Tooli(typer.Typer):
                 version=None if version is None else str(version),
                 deprecated=deprecated,
                 deprecated_message=deprecated_message,
+                deprecated_version=deprecated_version,
                 secret_params=secret_params,
                 when_to_use=when_to_use,
                 expected_outputs=expected_outputs or [],

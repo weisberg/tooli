@@ -2,36 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated
 
-try:
-    from typer import Argument, Option  # type: ignore[import-not-found]
-except ModuleNotFoundError:  # pragma: no cover - exercised in optional backend setups
-    from tooli.backends.native import Argument, Option
+from tooli.backends.native import Argument, Option
 
-from tooli.app_native import Tooli as _NativeTooli
+from tooli.app_native import Tooli
 from tooli.detect import CallerCategory, ExecutionContext, detect_execution_context
 from tooli.dry_run import DryRunRecorder, dry_run_support, record_dry_action
 from tooli.input import SecretInput, StdinOr
 from tooli.python_api import TooliError, TooliResult
 from tooli.versioning import VersionFilter, compare_versions
 
-try:
-    from tooli.app import Tooli as _TyperTooli  # type: ignore[import-not-found]
-except ModuleNotFoundError:
-    _TyperTooli: type | None = None
-
-
-class Tooli:
-    """Factory that selects Typer or native backend at construction time."""
-
-    def __new__(cls, *args: Any, backend: str = "typer", **kwargs: Any):  # noqa: D401
-        if backend == "native" or _TyperTooli is None:
-            return _NativeTooli(*args, backend=backend, **kwargs)
-        return _TyperTooli(*args, backend=backend, **kwargs)
-
-
-__version__ = "6.2.1"
+__version__ = "6.5.0"
 __all__ = [
     "Annotated",
     "Argument",
@@ -50,7 +32,3 @@ __all__ = [
     "TooliResult",
     "TooliError",
 ]
-
-if TYPE_CHECKING:
-    from tooli.app import Tooli as AppTooli
-    from tooli.app_native import Tooli as NativeTooli

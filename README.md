@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v5.0)
+## Current State (v6.5.0)
 
-Tooli v5.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 529+ tests passing across Python 3.10+.
+Tooli v6.5.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 529+ tests passing across Python 3.10+.
 
 ### What ships today
 
@@ -42,9 +42,9 @@ Tooli v5.0 is production-ready and published on [PyPI](https://pypi.org/project/
 | **Orchestration** | Hidden `orchestrate run` command for deterministic multi-tool plan execution (`JSON` / `python` payloads) |
 | **Safety** | Behavioral annotations (`ReadOnly`, `Destructive`, `Idempotent`, `OpenWorld`), `@dry_run_support`, security policies (OFF/STANDARD/STRICT), auth scopes |
 | **Docs** | Task-oriented SKILL.md, enhanced CLAUDE.md, llms.txt, Unix man pages -- always in sync with code |
-| **Agent Bootstrap** | `--agent-bootstrap` flag on any command produces a deployable SKILL.md. `generate-skill --target` for generic, Claude, or Claude Code formats |
-| **Composition** | `PipeContract` for declaring input/output formats. Auto-inferred composition patterns in SKILL.md |
-| **Scaffolding** | `tooli init` creates new projects with best-practice structure. `--from-typer` migration mode |
+| **Docs Tooling** | Use external `tooli-docs` to generate SKILL.md, CLAUDE.md, and AGENTS.md from app/schema input |
+| **Composition** | Schema-first composition via JSON/JSONL contracts and orchestration plans |
+| **Scaffolding** | Use `cookiecutter gh:weisberg/tooli-template` for project bootstrap |
 | **Pagination** | Cursor-based with `--limit`, `--cursor`, `--fields`, `--filter` |
 | **Caller Detection** | `TOOLI_CALLER` convention for agent identification, 5-category heuristic detection, `detect-context` builtin command, caller metadata in envelope/telemetry/recordings |
 | **Observability** | Opt-in telemetry, invocation recording for eval workflows, OpenTelemetry spans with caller attributes |
@@ -82,7 +82,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="5.0.0",
+    version="6.5.0",
 )
 
 @app.command(
@@ -129,7 +129,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "4.1.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "6.5.0", "duration_ms": 34}
 }
 ```
 
@@ -259,15 +259,14 @@ $ file-tools deploy production --dry-run --json
 ## Auto-Generated Documentation
 
 ```bash
-# Agent-readable skill documentation (v4 task-oriented format)
-$ file-tools generate-skill > SKILL.md
-$ file-tools generate-skill --target claude-code > SKILL.md   # Claude Code optimized
-$ file-tools generate-skill --target claude-skill > SKILL.md  # Claude model optimized
-$ file-tools generate-skill --format manifest > agent-manifest.json
-$ file-tools generate-skill --format claude-md > CLAUDE.md
+# Agent-readable skill documentation (external package)
+$ tooli-docs skill examples/docq/app.py:app --output SKILL.md
+$ tooli-docs claude-md examples/docq/app.py:app --output CLAUDE.md
+$ tooli-docs agents-md examples/docq/app.py:app --output AGENTS.md
 
-# Bootstrap: any command can produce a deployable SKILL.md
-$ file-tools find-files --agent-bootstrap > SKILL.md
+# Framework wrappers (external package)
+$ tooli-export openai examples/docq/app.py:app --mode import > tools_openai.py
+$ tooli-export langchain examples/docq/app.py:app --mode import > tools_langchain.py
 
 # LLM-friendly docs (llms.txt standard)
 $ file-tools docs llms
@@ -278,10 +277,9 @@ $ file-tools docs man
 
 Useful validation and automation flows:
 
-- `file-tools generate-skill --validate` checks that generated SKILL.md is complete.
-- `file-tools generate-skill --detail-level summary` keeps large toolsets within agent token budgets.
-- `file-tools generate-skill --infer-workflows` auto-derives simple workflow examples.
-- `file-tools eval agent-test` runs an end-to-end contract validation for schema, envelope, and error handling.
+- Use `--schema` for strict command contracts.
+- Use `tooli-docs ... --from-schema schema.json` for schema-driven docs.
+- Use CI assertions around envelope shape (`ok/result/meta`) and error codes.
 
 Migration guidance: see [`MIGRATION_GUIDE_v4.md`](MIGRATION_GUIDE_v4.md) (v3 to v4) or [`MIGRATION_GUIDE_v3.md`](MIGRATION_GUIDE_v3.md) (v2 to v3).
 
@@ -305,7 +303,6 @@ Every Tooli command automatically gets:
 --schema           Print JSON Schema and exit
 --response-format  concise|detailed
 --help-agent       Token-optimized help for agents
---agent-bootstrap  Generate deployable SKILL.md and exit
 ```
 
 ---
@@ -358,9 +355,11 @@ See the [examples README](examples/README.md) for the full list of 18 apps and u
 
 ## Version History
 
-- **v4.1** (current) -- Caller-Aware Agent Runtime. `TOOLI_CALLER` convention, 5-category heuristic detection, `detect-context` builtin, caller metadata in envelope/telemetry/recordings, adaptive confirmation and help formatting.
-- **v4.0** -- Agent Skill Platform. Task-oriented SKILL.md, `--agent-bootstrap`, `PipeContract`, composition inference, `tooli init`, metadata coverage, Claude Code integration.
-- **v3.0** -- Documentation workflow primitives. `generate-skill --validate`, `--infer-workflows`, token-budget estimation, native backend support.
+- **v6.5.0** (current) -- latest stable v6 release line with core cleanup, extraction follow-through, and ongoing reliability improvements.
+- **v6.0** -- extraction and cleanup release. Docs and export generation moved to external packages (`tooli-docs`, `tooli-export`); deprecated internal shims removed.
+- **v5.0** -- Universal Agent Tool Interface. Added Python API, capabilities, handoff metadata, and AGENTS.md generation.
+- **v4.1** -- Caller-Aware Agent Runtime. `TOOLI_CALLER` convention, 5-category heuristic detection, `detect-context` builtin, caller metadata in envelope/telemetry/recordings, adaptive confirmation and help formatting.
+- **v4.0** -- Agent Skill Platform foundations and schema-first workflows.
 - **v2.0** -- Agent-Environment Interface. MCP bridge, orchestration runtime, deferred discovery, token budgets, Python eval mode.
 - **v1.0** -- Core framework. Dual-mode output, structured errors, JSON Schema, MCP server, annotations, pagination, observability.
 

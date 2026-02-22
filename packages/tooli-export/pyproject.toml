@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tooli-export"
+version = "0.1.0"
+description = "Standalone framework export CLI for Tooli apps"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "tooli>=6.2.1",
+]
+
+[project.scripts]
+tooli-export = "tooli_export.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tooli_export*"]

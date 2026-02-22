@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -1947,9 +1947,10 @@ wheels = [
 
 [[package]]
 name = "tooli"
-version = "5.0.0"
+version = "6.5.0"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "pydantic" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -1965,16 +1966,15 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "typer" },
 ]
 mcp = [
     { name = "fastmcp" },
 ]
-typer = [
-    { name = "typer" },
-]
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.1" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -1984,10 +1984,10 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "starlette", marker = "extra == 'api'", specifier = ">=0.27" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
-    { name = "typer", marker = "extra == 'typer'", specifier = ">=0.9" },
+    { name = "typer", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.20" },
 ]
-provides-extras = ["typer", "dev", "mcp", "api"]
+provides-extras = ["dev", "mcp", "api"]
 
 [[package]]
 name = "typer"

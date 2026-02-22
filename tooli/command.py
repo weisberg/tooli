@@ -22,7 +22,7 @@ from typer.core import TyperCommand
 
 from tooli.annotations import ToolAnnotation
 from tooli.auth import AuthContext  # noqa: TC001
-from tooli.command_meta import get_command_meta
+from tooli.command_meta import CommandMeta, get_command_meta
 from tooli.context import ToolContext
 from tooli.envelope import Envelope, EnvelopeMeta
 from tooli.errors import (
@@ -33,7 +33,7 @@ from tooli.errors import (
     ToolError,
     ToolRuntimeError,
 )
-from tooli.eval.recorder import InvocationRecorder  # noqa: TC001
+from tooli.recorder import InvocationRecorder  # noqa: TC001
 from tooli.exit_codes import ExitCode
 from tooli.idempotency import get_record, set_record
 from tooli.input import is_secret_input, redact_secret_values, resolve_secret_value
@@ -52,6 +52,7 @@ from tooli.security.sanitizer import sanitize_output
 from tooli.telemetry import duration_ms as otel_duration_ms
 from tooli.telemetry import start_command_span
 from tooli.telemetry_pipeline import TelemetryPipeline  # noqa: TC001
+from tooli.versioning import compare_versions
 
 
 def _set_output_override(mode: OutputMode) -> Callable[[click.Context, click.Parameter, Any], Any]:
@@ -104,6 +105,14 @@ def _env_flag_enabled(name: str) -> bool:
 
 def _yes_override_from_env() -> bool:
     return _env_flag_enabled("TOOLI_YES") or _env_flag_enabled("TOOLI_NONINTERACTIVE")
+
+
+def _deprecated_removed(meta: CommandMeta, *, app_version: str) -> bool:
+    if not meta.deprecated:
+        return False
+    if not meta.deprecated_version:
+        return False
+    return compare_versions(app_version, meta.deprecated_version) >= 0
 
 
 def _detect_secret_parameter_names(callback: Callable[..., Any] | None) -> list[str]:
@@ -828,6 +837,8 @@ def _build_envelope_meta(
                 warnings.append(str(meta.deprecated_message))
             else:
                 warnings.append("This command is deprecated.")
+            if meta.deprecated_version:
+                warnings.append(f"Scheduled for removal in v{meta.deprecated_version}.")
 
     from tooli.detect import _get_context
     detection = _get_context()
@@ -1480,6 +1491,25 @@ class TooliCommand(TyperCommand):
         def _authorize() -> None:
             _enforce_authorization(auth_context=auth_context, required_scopes=required_scopes)
 
+        def _enforce_deprecation() -> None:
+            if not _deprecated_removed(cb_meta, app_version=app_version):
+                return
+            fix = cb_meta.deprecated_message or "Use the replacement command documented in the migration guide."
+            raise InputError(
+                message="This command has been removed and can no longer be invoked.",
+                code="E1001",
+                suggestion=Suggestion(
+                    action="migrate command usage",
+                    fix=fix,
+                    example=None,
+                ),
+                details={
+                    "deprecated": True,
+                    "deprecated_version": cb_meta.deprecated_version,
+                    "command": _get_tool_id(ctx),
+                },
+            )
+
         def _enforce_capabilities() -> None:
             if security_policy != SecurityPolicy.STRICT:
                 return
@@ -1603,6 +1633,7 @@ class TooliCommand(TyperCommand):
                     command_name=command_name,
                     allow_python_eval=allow_python_eval,
                 )
+                _enforce_deprecation()
                 _authorize()
                 _enforce_capabilities()
                 _enforce_security_policy()

@@ -14,8 +14,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_EVAL_DIR = Path.home() / ".config" / "tooli" / "eval"
-DEFAULT_EVAL_FILE = "invocations.jsonl"
+DEFAULT_RECORD_DIR = Path.home() / ".config" / "tooli" / "records"
+DEFAULT_RECORD_FILE = "invocations.jsonl"
 SCHEMA_VERSION = 2
 
 
@@ -31,7 +31,7 @@ def _parse_record_path(value: str | None) -> Path | None:
 
 
 def _default_record_path() -> Path:
-    return DEFAULT_EVAL_DIR / DEFAULT_EVAL_FILE
+    return DEFAULT_RECORD_DIR / DEFAULT_RECORD_FILE
 
 
 def _resolve_record_path(record: bool | str | None) -> Path | None:

@@ -43,6 +43,7 @@ class CommandMeta:
     hidden: bool = False
     deprecated: bool = False
     deprecated_message: str | None = None
+    deprecated_version: str | None = None
     max_tokens: int | None = None
     supports_dry_run: bool = False
     requires_approval: bool = False

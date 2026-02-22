@@ -14,9 +14,9 @@ from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from tooli.backends.native import Argument as NativeArgument
 from tooli.backends.native import Option as NativeOption
-from tooli.command_meta import CommandMeta
+from tooli.command_meta import CommandMeta, get_command_meta
 from tooli.envelope import Envelope, EnvelopeMeta
-from tooli.errors import InputError, InternalError, ToolError
+from tooli.errors import InputError, InternalError, Suggestion, ToolError
 from tooli.transforms import ToolDef
 from tooli.versioning import compare_versions
 
@@ -103,6 +103,27 @@ def _format_help_param_type(annotation: Any) -> str:
     return str(base_annotation)
 
 
+def _deprecated_removed(meta: CommandMeta, *, app_version: str) -> bool:
+    if not meta.deprecated:
+        return False
+    if not meta.deprecated_version:
+        return False
+    return compare_versions(app_version, meta.deprecated_version) >= 0
+
+
+def _deprecation_warnings(meta: CommandMeta) -> list[str]:
+    if not meta.deprecated:
+        return []
+    warnings: list[str] = []
+    if meta.deprecated_message:
+        warnings.append(str(meta.deprecated_message))
+    else:
+        warnings.append("This command is deprecated.")
+    if meta.deprecated_version:
+        warnings.append(f"Scheduled for removal in v{meta.deprecated_version}.")
+    return warnings
+
+
 @dataclass(slots=True)
 class _NativeTooliConfig:
     name: str
@@ -117,7 +138,7 @@ class Tooli:
     def __init__(
         self,
         *args: Any,  # noqa: ARG002
-        backend: str = "native",
+        backend: str | None = None,
         description: str | None = None,
         version: str = "0.0.0",
         name: str = "tooli",
@@ -126,8 +147,8 @@ class Tooli:
         **kwargs: Any,
     ) -> None:
         del args
-        if backend == "typer":
-            raise RuntimeError("Typer backend requested but Typer is unavailable.")
+        if backend not in {None, "native"}:
+            raise RuntimeError("Only the native backend is supported.")
 
         if callbacks is not None:
             raise TypeError("callbacks is not supported in the native backend fallback.")
@@ -141,7 +162,7 @@ class Tooli:
             raise RuntimeError(f"Unsupported options for native backend: {unsupported}")
 
         self.version = version
-        self.backend = backend
+        self.backend = "native"
         self.name = name
         if help is None:
             help = description if description is not None else "An agent-native CLI application."
@@ -176,6 +197,7 @@ class Tooli:
         version: str | None = None,
         deprecated: bool = False,
         deprecated_message: str | None = None,
+        deprecated_version: str | None = None,
         when_to_use: str | None = None,
         expected_outputs: list[dict[str, Any]] | None = None,
         task_group: str | None = None,
@@ -200,6 +222,7 @@ class Tooli:
         _ = output_example
         _ = deprecated
         _ = deprecated_message
+        _ = deprecated_version
         _ = when_to_use
         _ = expected_outputs
         _ = task_group
@@ -233,6 +256,7 @@ class Tooli:
                 allow_python_eval=allow_python_eval,
                 deprecated=deprecated,
                 deprecated_message=deprecated_message,
+                deprecated_version=deprecated_version,
                 error_codes=error_codes or {},
                 when_to_use=when_to_use,
                 expected_outputs=expected_outputs or [],
@@ -362,14 +386,19 @@ class Tooli:
                 break
 
         tool_id = f"{app_name}.{resolved_name}"
+        command_meta = get_command_meta(callback)
 
         def _build_meta(duration_ms: int) -> dict[str, Any]:
-            return {
+            meta: dict[str, Any] = {
                 "tool": tool_id,
                 "version": self.version,
                 "duration_ms": duration_ms,
                 "caller_id": "python-api",
             }
+            warnings = _deprecation_warnings(command_meta)
+            if warnings:
+                meta["warnings"] = warnings
+            return meta
 
         if callback is None:
             duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
@@ -399,6 +428,25 @@ class Tooli:
             err_exc = InputError(
                 message=f"Unknown parameter(s): {', '.join(sorted(unknown))}",
                 code="E1001",
+            )
+            from tooli.python_api import TooliResult as _TR
+            return _TR.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        if _deprecated_removed(command_meta, app_version=self.version):
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            err_exc = InputError(
+                message="This command has been removed and can no longer be invoked.",
+                code="E1001",
+                suggestion=Suggestion(
+                    action="migrate command usage",
+                    fix=command_meta.deprecated_message
+                    or "Use the replacement command documented in the migration guide.",
+                ),
+                details={
+                    "deprecated": True,
+                    "deprecated_version": command_meta.deprecated_version,
+                    "command": tool_id,
+                },
             )
             from tooli.python_api import TooliResult as _TR
             return _TR.from_tool_error(err_exc, meta=_build_meta(duration_ms))
@@ -467,9 +515,19 @@ class Tooli:
                 break
 
         tool_id = f"{app_name}.{resolved_name}"
+        command_meta = get_command_meta(callback)
 
         def _build_meta(duration_ms: int) -> dict[str, Any]:
-            return {"tool": tool_id, "version": self.version, "duration_ms": duration_ms, "caller_id": "python-api"}
+            meta: dict[str, Any] = {
+                "tool": tool_id,
+                "version": self.version,
+                "duration_ms": duration_ms,
+                "caller_id": "python-api",
+            }
+            warnings = _deprecation_warnings(command_meta)
+            if warnings:
+                meta["warnings"] = warnings
+            return meta
 
         dry_run = kwargs.pop("dry_run", False)
 
@@ -486,6 +544,24 @@ class Tooli:
         if unknown:
             duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
             err_exc = InputError(message=f"Unknown parameter(s): {', '.join(sorted(unknown))}", code="E1001")
+            return TooliResult.from_tool_error(err_exc, meta=_build_meta(duration_ms))
+
+        if _deprecated_removed(command_meta, app_version=self.version):
+            duration_ms = max(1, int((time.perf_counter() - start_time) * 1000))
+            err_exc = InputError(
+                message="This command has been removed and can no longer be invoked.",
+                code="E1001",
+                suggestion=Suggestion(
+                    action="migrate command usage",
+                    fix=command_meta.deprecated_message
+                    or "Use the replacement command documented in the migration guide.",
+                ),
+                details={
+                    "deprecated": True,
+                    "deprecated_version": command_meta.deprecated_version,
+                    "command": tool_id,
+                },
+            )
             return TooliResult.from_tool_error(err_exc, meta=_build_meta(duration_ms))
 
         try:
@@ -762,6 +838,7 @@ class Tooli:
             return 1
 
         callback = command.callback
+        command_meta = get_command_meta(callback)
         show_schema = bool(ns.pop("schema", False))
         if show_schema:
             self._emit_schema(callback)
@@ -801,8 +878,25 @@ class Tooli:
 
         output_json = bool(ns.pop("json", False))
         use_text_mode = not output_json
+        warnings = _deprecation_warnings(command_meta)
 
         try:
+            if _deprecated_removed(command_meta, app_version=self.version):
+                raise InputError(
+                    message="This command has been removed and can no longer be invoked.",
+                    code="E1001",
+                    suggestion=Suggestion(
+                        action="migrate command usage",
+                        fix=command_meta.deprecated_message
+                        or "Use the replacement command documented in the migration guide.",
+                    ),
+                    details={
+                        "deprecated": True,
+                        "deprecated_version": command_meta.deprecated_version,
+                        "command": f"{self.info.name}.{command.name}",
+                    },
+                )
+
             result = callback(**callback_kwargs)
             if use_text_mode and not isinstance(result, str):
                 print(json.dumps(result, indent=2))
@@ -817,7 +911,7 @@ class Tooli:
                         version=self.version,
                         duration_ms=max(1, int((time.perf_counter() - start_time) * 1000)),
                         dry_run=False,
-                        warnings=[],
+                        warnings=warnings,
                     ),
                 )
                 print(json.dumps(payload.model_dump(), indent=2))
@@ -832,7 +926,7 @@ class Tooli:
                         "version": self.version,
                         "duration_ms": max(1, int((time.perf_counter() - start_time) * 1000)),
                         "dry_run": False,
-                        "warnings": [],
+                        "warnings": warnings,
                     },
                 }
                 print(json.dumps(payload, indent=2))
@@ -849,7 +943,7 @@ class Tooli:
                         "version": self.version,
                         "duration_ms": max(1, int((time.perf_counter() - start_time) * 1000)),
                         "dry_run": False,
-                        "warnings": [],
+                        "warnings": warnings,
                     },
                 }
                 print(json.dumps(payload, indent=2))
@@ -870,7 +964,7 @@ class Tooli:
                         "version": self.version,
                         "duration_ms": max(1, int((time.perf_counter() - start_time) * 1000)),
                         "dry_run": False,
-                        "warnings": [],
+                        "warnings": warnings,
                     },
                 }
                 print(json.dumps(payload, indent=2))
