@@ -61,6 +61,53 @@ def test_security_policy_defaults_to_standard() -> None:
     assert with_yes.exit_code == 0
 
 
+def test_tooli_yes_env_var_skips_confirmation(monkeypatch) -> None:
+    monkeypatch.setenv("TOOLI_YES", "1")
+    monkeypatch.delenv("TOOLI_NONINTERACTIVE", raising=False)
+
+    app = Tooli(name="sec-app", security_policy="standard")
+    runner = CliRunner()
+
+    @app.command(annotations=Destructive)
+    def wipe() -> str:
+        return "removed"
+
+    result = runner.invoke(app, ["wipe", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip().endswith("removed")
+
+
+def test_tooli_noninteractive_env_var_skips_confirmation(monkeypatch) -> None:
+    monkeypatch.setenv("TOOLI_NONINTERACTIVE", "yes")
+    monkeypatch.delenv("TOOLI_YES", raising=False)
+
+    app = Tooli(name="sec-app", security_policy="standard")
+    runner = CliRunner()
+
+    @app.command(annotations=Destructive)
+    def wipe() -> str:
+        return "removed"
+
+    result = runner.invoke(app, ["wipe", "--text"])
+    assert result.exit_code == 0
+    assert result.output.strip().endswith("removed")
+
+
+def test_tooli_yes_env_var_false_does_not_skip_confirmation(monkeypatch) -> None:
+    monkeypatch.setenv("TOOLI_YES", "0")
+    monkeypatch.delenv("TOOLI_NONINTERACTIVE", raising=False)
+
+    app = Tooli(name="sec-app", security_policy="standard")
+    runner = CliRunner()
+
+    @app.command(annotations=Destructive)
+    def wipe() -> str:
+        return "removed"
+
+    result = runner.invoke(app, ["wipe", "--text"])
+    assert result.exit_code == 2
+
+
 @pytest.mark.parametrize(
     "value, expected_mode",
     [

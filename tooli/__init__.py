@@ -31,7 +31,7 @@ class Tooli:
         return _TyperTooli(*args, backend=backend, **kwargs)
 
 
-__version__ = "6.1.0"
+__version__ = "6.2.1"
 __all__ = [
     "Annotated",
     "Argument",

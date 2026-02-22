@@ -92,6 +92,20 @@ def _capture_tooli_flags(ctx: click.Context, param: click.Parameter, value: Any)
     return value
 
 
+_TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+
+
+def _env_flag_enabled(name: str) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUTHY_ENV_VALUES
+
+
+def _yes_override_from_env() -> bool:
+    return _env_flag_enabled("TOOLI_YES") or _env_flag_enabled("TOOLI_NONINTERACTIVE")
+
+
 def _detect_secret_parameter_names(callback: Callable[..., Any] | None) -> list[str]:
     """Return callback parameters annotated with SecretInput."""
     meta = get_command_meta(callback)
@@ -1322,7 +1336,7 @@ class TooliCommand(TyperCommand):
             verbose=int(ctx.meta.get("tooli_flag_verbose", 0)),
             dry_run=bool(ctx.meta.get("tooli_flag_dry_run", False)),
             force=bool(ctx.meta.get("tooli_flag_force", False)),
-            yes=bool(ctx.meta.get("tooli_flag_yes", False)),
+            yes=bool(ctx.meta.get("tooli_flag_yes", False)) or _yes_override_from_env(),
             timeout=ctx.meta.get("tooli_flag_timeout"),
             auth=auth_context,
             idempotency_key=ctx.meta.get("tooli_flag_idempotency_key"),
