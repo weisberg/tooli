@@ -13,7 +13,7 @@ from tooli.input import SecretInput, StdinOr
 from tooli.python_api import TooliError, TooliResult
 from tooli.versioning import VersionFilter, compare_versions
 
-__version__ = "6.5.0"
+__version__ = "6.6.0"
 __all__ = [
     "Annotated",
     "Argument",

@@ -95,3 +95,51 @@ def test_native_backend_dry_run_payload() -> None:
     assert payload["dry_run"] is True
     assert payload["tool"] == "native-demo.rewrite"
     assert payload["command"] == "rewrite"
+
+
+def test_native_backend_optional_type_parameters() -> None:
+    """T | None parameters must not crash argparse (issue #203)."""
+    app = Tooli(name="native-optional")
+
+    @app.command()
+    def search(
+        query: str = "default",
+        limit: Annotated[int | None, Option(help="Max results")] = None,
+    ) -> dict:
+        return {"query": query, "limit": limit}
+
+    code, output = _run_native(app, ["search", "--json"])
+    assert code == 0
+    payload = json.loads(output)
+    assert payload["ok"] is True
+    assert payload["result"]["limit"] is None
+
+    code2, output2 = _run_native(app, ["search", "--limit", "10", "--json"])
+    assert code2 == 0
+    payload2 = json.loads(output2)
+    assert payload2["result"]["limit"] == 10
+
+
+def test_native_backend_triggers_anti_triggers_rules() -> None:
+    """triggers, anti_triggers, and rules are accepted and stored (issue #202)."""
+    app = Tooli(
+        name="native-agent",
+        triggers=["analyzing data"],
+        anti_triggers=["modifying state"],
+        rules=["Always validate input"],
+    )
+
+    @app.command()
+    def analyze(data: str) -> str:
+        return f"analyzed: {data}"
+
+    assert app.triggers == ["analyzing data"]
+    assert app.anti_triggers == ["modifying state"]
+    assert app.rules == ["Always validate input"]
+
+
+def test_native_backend_extra_kwargs_stored() -> None:
+    """Unknown kwargs are stored as attributes instead of crashing."""
+    app = Tooli(name="native-compat", env_vars={"FOO": "bar"})
+
+    assert app.env_vars == {"FOO": "bar"}

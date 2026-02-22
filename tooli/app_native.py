@@ -9,8 +9,9 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+import types
 from types import SimpleNamespace
-from typing import Annotated, Any, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 from tooli.backends.native import Argument as NativeArgument
 from tooli.backends.native import Option as NativeOption
@@ -37,8 +38,19 @@ def _strip_annotated(annotation: Any) -> tuple[Any, tuple[Any, ...]]:
     return annotation, ()
 
 
+def _unwrap_optional(tp: Any) -> Any:
+    """Unwrap Optional[T] / T | None to T. Returns tp unchanged if not optional."""
+    origin = get_origin(tp)
+    if origin is Union or origin is getattr(types, "UnionType", None) or type(tp).__name__ == "UnionType":
+        args = [a for a in get_args(tp) if a is not type(None)]
+        if args:
+            return args[0]
+    return tp
+
+
 def _coerce_value(raw: str, annotation: Any) -> Any:
     base_annotation, _metadata = _strip_annotated(annotation)
+    base_annotation = _unwrap_optional(base_annotation)
     if base_annotation is inspect.Signature.empty:
         return raw
     if base_annotation is bool:
@@ -86,6 +98,7 @@ def _yaml_value(value: Any) -> str:
 
 def _format_help_param_type(annotation: Any) -> str:
     base_annotation, _metadata = _strip_annotated(annotation)
+    base_annotation = _unwrap_optional(base_annotation)
     if base_annotation is inspect.Signature.empty:
         return "any"
     if base_annotation is str:
@@ -144,6 +157,9 @@ class Tooli:
         name: str = "tooli",
         help: str | None = None,
         callbacks: list[Callable[..., Any]] | None = None,
+        triggers: list[str] | None = None,
+        anti_triggers: list[str] | None = None,
+        rules: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         del args
@@ -155,11 +171,10 @@ class Tooli:
 
         default_output = kwargs.pop("default_output", "auto")
         self.default_output = default_output
-        if kwargs:
-            # Keep call sites compatible with Typer style signatures by allowing a
-            # small subset of common arguments and rejecting unsupported options.
-            unsupported = ", ".join(sorted(kwargs))
-            raise RuntimeError(f"Unsupported options for native backend: {unsupported}")
+        # Store remaining kwargs as attributes for compatibility with the
+        # Typer backend (e.g. env_vars, workflows, security_policy).
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
         self.version = version
         self.backend = "native"
@@ -168,6 +183,9 @@ class Tooli:
             help = description if description is not None else "An agent-native CLI application."
         self.help = help
         self.info = SimpleNamespace(name=name, help=self.help)
+        self.triggers = list(triggers or [])
+        self.anti_triggers = list(anti_triggers or [])
+        self.rules = list(rules or [])
 
         self._commands: list[_NativeTooliConfig] = []
         self._versioned_commands_latest: dict[str, str] = {}
@@ -670,6 +688,7 @@ class Tooli:
 
                     raw_type = cb.__annotations__.get(parameter.name, parameter.annotation)
                     base_type, _meta = _strip_annotated(raw_type)
+                    base_type = _unwrap_optional(base_type)
                     is_flag = bool(opt_kwargs.get("is_flag", False))
                     if base_type is bool:
                         action = "store_false" if default is True else "store_true"
@@ -703,6 +722,7 @@ class Tooli:
                         option_name = f"--{_normalise_alias(parameter.name)}"
                         raw_type = cb.__annotations__.get(parameter.name, parameter.annotation)
                         base, _meta = _strip_annotated(raw_type)
+                        base = _unwrap_optional(base)
                         is_flag = base is bool
                         if is_flag:
                             sp.add_argument(option_name, action="store_true", default=bool(parameter.default))
@@ -869,7 +889,7 @@ class Tooli:
                 annotation = callback.__annotations__.get(parameter.name, parameter.annotation)
                 if get_origin(annotation) is not None or isinstance(value, str):
                     marker = _native_marker_from_annotation(annotation)
-                    base_annotation = _strip_annotated(annotation)[0]
+                    base_annotation = _unwrap_optional(_strip_annotated(annotation)[0])
                     if base_annotation is inspect.Signature.empty:
                         base_annotation = str
                     if base_annotation not in (str, Any, inspect.Parameter.empty):
