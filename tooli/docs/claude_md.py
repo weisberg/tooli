@@ -27,7 +27,7 @@ def generate_claude_md(app: "Tooli") -> str:
     app_name = app.info.name or "tooli-app"
     app_help = app.info.help or "An agent-native CLI application."
     lines = [
-        f"# CLAUDE.md — {app_name}",
+        f"# CLAUDE.md -- {app_name}",
         "",
         "## Project overview",
         "",

@@ -277,6 +277,22 @@ def test_response_format_flag_is_stored() -> None:
     assert result.output.strip() == "detailed"
 
 
+def test_global_flag_conflict_detection() -> None:
+    """Defining a command param that conflicts with a global flag raises an error."""
+    import click
+    import pytest
+
+    app = Tooli(name="test-app")
+
+    @app.command()
+    def bad(output: str = "default") -> str:
+        return output
+
+    runner = CliRunner()
+    with pytest.raises(click.ClickException, match="conflicts with"):
+        runner.invoke(app, ["bad"], catch_exceptions=False)
+
+
 def test_help_agent_flag_output() -> None:
     """--help-agent should emit structured YAML metadata."""
     app = Tooli(name="test-app")
@@ -641,7 +657,7 @@ def test_generate_skill_manifest_output_file(tmp_path: Path) -> None:
 
 
 def test_generate_skill_output_alias(tmp_path: Path) -> None:
-    """generate-skill supports both --output and --output-path."""
+    """generate-skill supports --output-path."""
     app = Tooli(name="generate-output")
 
     @app.command()
@@ -652,7 +668,7 @@ def test_generate_skill_output_alias(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["generate-skill", "--format", "skill", "--output", str(output_path)],
+        ["generate-skill", "--format", "skill", "--output-path", str(output_path)],
     )
     assert result.exit_code == 0
     assert output_path.exists()
@@ -672,7 +688,7 @@ def test_generate_claude_md_command(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["generate-claude-md", "--output", str(claude_path)],
+        ["generate-claude-md", "--output-path", str(claude_path)],
     )
     assert result.exit_code == 0
     assert claude_path.exists()
@@ -698,7 +714,7 @@ def test_generate_skill_format_pipeline_integration(tmp_path: Path) -> None:
     claude_path = tmp_path / "CLAUDE.md"
 
     assert (
-        runner.invoke(app, ["generate-skill", "--format", "claude-skill", "--output", str(skill_path), "--validate"]).exit_code
+        runner.invoke(app, ["generate-skill", "--format", "claude-skill", "--output-path", str(skill_path), "--validate"]).exit_code
         == 0
     )
     assert skill_path.exists()
@@ -711,7 +727,7 @@ def test_generate_skill_format_pipeline_integration(tmp_path: Path) -> None:
                 "generate-skill",
                 "--format",
                 "manifest",
-                "--output",
+                "--output-path",
                 str(manifest_path),
             ],
         ).exit_code
@@ -724,7 +740,7 @@ def test_generate_skill_format_pipeline_integration(tmp_path: Path) -> None:
     assert (
         runner.invoke(
             app,
-            ["generate-skill", "--format", "claude-md", "--output", str(claude_path)],
+            ["generate-skill", "--format", "claude-md", "--output-path", str(claude_path)],
         ).exit_code
         == 0
     )

@@ -185,6 +185,29 @@ def _is_list_processing_command(callback: Callable[..., Any] | None) -> bool:
     return get_command_meta(callback).list_processing
 
 
+_GLOBAL_FLAG_NAMES: set[str] = {
+    "--output", "-o", "--json", "--jsonl", "--print0", "--text", "--plain",
+    "--no-color", "--quiet", "-q", "--verbose", "-v", "--dry-run",
+    "--yes", "-y", "--force", "--timeout", "--idempotency-key", "--null",
+    "--python-eval", "--agent-manifest", "--response-format", "--schema",
+    "--help-agent",
+}
+
+
+def _check_global_flag_conflicts(params: list[click.Parameter]) -> None:
+    """Raise if any user-defined parameter collides with a global flag."""
+    for param in params:
+        if not isinstance(param, click.Option) or not param.expose_value:
+            continue
+        for name in list(param.opts) + list(param.secondary_opts):
+            if name in _GLOBAL_FLAG_NAMES:
+                raise click.ClickException(
+                    f"Parameter name '{name}' conflicts with a reserved "
+                    f"global flag. Use a different name (e.g. "
+                    f"'{name}-path' or '{name}-file')."
+                )
+
+
 def _is_paginated_command(callback: Callable[..., Any] | None) -> bool:
     return get_command_meta(callback).paginated
 
@@ -1123,6 +1146,9 @@ class TooliCommand(TyperCommand):
                         ),
                     ]
                 )
+        # Detect conflicts between user-defined and global flags.
+        _check_global_flag_conflicts(params)
+
         kwargs["params"] = params
         super().__init__(*args, **kwargs)
 
@@ -1448,7 +1474,7 @@ class TooliCommand(TyperCommand):
                 return
             allowed_raw = os.environ.get("TOOLI_ALLOWED_CAPABILITIES", "")
             if not allowed_raw:
-                return  # No allowlist set — skip enforcement
+                return  # No allowlist set -- skip enforcement
             allowed = {c.strip() for c in allowed_raw.split(",") if c.strip()}
             denied = [c for c in capabilities if c not in allowed and not any(c.startswith(a.rstrip(":*") + ":") for a in allowed if a.endswith(":*"))]
             if denied:

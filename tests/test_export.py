@@ -29,11 +29,11 @@ def _build_app() -> Tooli:
         file_path: Annotated[str, Argument(help="File path to patch")],
         search: Annotated[str, Option(help="Exact text to find")] = "",
         replace: Annotated[str, Option(help="Replacement text")] = "",
-        dry_run: Annotated[bool, Option(help="Preview changes without writing")] = False,
+        preview: Annotated[bool, Option(help="Preview changes without writing")] = False,
     ) -> dict[str, int]:
         """Replace text in a file."""
         del file_path, search, replace
-        return {"replacements": 0 if dry_run else 1}
+        return {"replacements": 0 if preview else 1}
 
     return app
 

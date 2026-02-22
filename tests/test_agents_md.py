@@ -108,7 +108,7 @@ class TestBuiltinCommand:
 
         app = _make_app()
         runner = CliRunner()
-        result = runner.invoke(app, ["generate-agents-md", "--output", "-"])
+        result = runner.invoke(app, ["generate-agents-md", "--output-path", "-"])
         assert result.exit_code == 0
         assert "# AGENTS.md" in result.output
         assert "## Available Commands" in result.output
@@ -118,7 +118,7 @@ class TestBuiltinCommand:
 
         app = _make_app()
         runner = CliRunner()
-        result = runner.invoke(app, ["generate-skill", "--format", "agents-md", "--output", "-"])
+        result = runner.invoke(app, ["generate-skill", "--format", "agents-md", "--output-path", "-"])
         assert result.exit_code == 0
         assert "# AGENTS.md" in result.output
         assert "## Available Commands" in result.output

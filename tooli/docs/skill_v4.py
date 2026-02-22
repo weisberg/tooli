@@ -1,4 +1,4 @@
-"""v4 SKILL.md generator — task-oriented, composition-aware agent skill docs."""
+"""v4 SKILL.md generator -- task-oriented, composition-aware agent skill docs."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def pipe_contracts_compatible(
     output: dict[str, Any] | None,
     input_: dict[str, Any] | None,
 ) -> bool:
-    """Legacy stub — pipe contracts removed in v6.0."""
+    """Legacy stub -- pipe contracts removed in v6.0."""
     if output is None or input_ is None:
         return False
     return output.get("format") == input_.get("format")
@@ -571,7 +571,7 @@ class SkillV4Generator:
 
         patterns: list[tuple[str, list[str]]] = []
 
-        # 1) Pipe contract matching: output→input
+        # 1) Pipe contract matching: output->input
         for left in tools:
             left_meta = get_command_meta(left.callback)
             for right in tools:
@@ -583,7 +583,7 @@ class SkillV4Generator:
                     line = f"{self._tool_name} {left.name} --json | {self._tool_name} {right.name} --json"
                     patterns.append((label, [line]))
 
-        # 2) ReadOnly → Destructive preview pairs
+        # 2) ReadOnly -> Destructive preview pairs
         ro_commands = [t for t in tools if "read-only" in _annotation_labels(t.callback)]
         destructive_commands = [t for t in tools if "destructive" in _annotation_labels(t.callback)]
         for ro in ro_commands:

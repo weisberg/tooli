@@ -6,11 +6,11 @@ AI agent (Claude Code, GitHub Copilot, Cursor, etc.), an agent framework
 context.  Detection uses a triangulation strategy across five signal
 categories:
 
-    1. Environment variables  – agents and CI systems inject known keys.
-    2. Process tree inspection – humans run shells; agents run node/python/docker.
-    3. TTY / interactive status – humans have a TTY; pipes and agents do not.
-    4. Container / sandbox markers – dockerenv, cgroup, WSL interop files.
-    5. In-process call-stack inspection – detects LangChain / LangGraph callers.
+    1. Environment variables  - agents and CI systems inject known keys.
+    2. Process tree inspection - humans run shells; agents run node/python/docker.
+    3. TTY / interactive status - humans have a TTY; pipes and agents do not.
+    4. Container / sandbox markers - dockerenv, cgroup, WSL interop files.
+    5. In-process call-stack inspection - detects LangChain / LangGraph callers.
 
 The module is intentionally dependency-light: ``psutil`` is used when
 available for richer process-tree data, but every code path has a stdlib
@@ -24,15 +24,15 @@ variable before invoking any tooli-built CLI.  This is the **recommended,
 highest-confidence** identification method and takes priority over all
 heuristic detection.
 
-    TOOLI_CALLER          – Agent identifier string (e.g. "claude-code",
+    TOOLI_CALLER          - Agent identifier string (e.g. "claude-code",
                             "copilot-workspace", "my-custom-agent").
-    TOOLI_CALLER_VERSION  – Optional semver of the calling agent.
-    TOOLI_SESSION_ID      – Optional opaque session/run ID for tracing.
-    TOOLI_AGENT_MODE      – Legacy boolean flag (1/true/yes/on).  Still
+    TOOLI_CALLER_VERSION  - Optional semver of the calling agent.
+    TOOLI_SESSION_ID      - Optional opaque session/run ID for tracing.
+    TOOLI_AGENT_MODE      - Legacy boolean flag (1/true/yes/on).  Still
                             honored but ``TOOLI_CALLER`` is preferred.
 
 When ``TOOLI_CALLER`` is set, the detection module returns immediately with
-confidence 1.0 — no heuristic probing is performed.
+confidence 1.0 -- no heuristic probing is performed.
 
 Public API
 ----------
@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # ---------------------------------------------------------------------------
-# Tooli Caller Convention — environment variable names
+# Tooli Caller Convention -- environment variable names
 # ---------------------------------------------------------------------------
 # Agents SHOULD set these before invoking any tooli-built CLI.
 # See AGENT_INTEGRATION.md for full guidance.
@@ -82,7 +82,7 @@ TOOLI_AGENT_MODE: str = "TOOLI_AGENT_MODE"
 """Legacy boolean flag (``1``, ``true``, ``yes``, ``on``).  Still honored
 for backward compatibility but ``TOOLI_CALLER`` is preferred."""
 
-# Mapping from TOOLI_CALLER well-known values → display names
+# Mapping from TOOLI_CALLER well-known values -> display names
 _TOOLI_CALLER_DISPLAY_NAMES: dict[str, str] = {
     "claude-code": "Claude Code",
     "cursor": "Cursor",
@@ -135,7 +135,7 @@ class ExecutionContext:
     """Specific agent name when identified (e.g. ``"Claude Code"``)."""
 
     confidence: float = 0.0
-    """0.0–1.0 confidence in the classification."""
+    """0.0-1.0 confidence in the classification."""
 
     signals: list[str] = field(default_factory=list)
     """Human-readable list of every signal that fired."""
@@ -208,7 +208,7 @@ def _check_env_signatures(env: dict[str, str]) -> list[tuple[str, str, float]]:
 
     # ── TOOLI_CALLER convention (highest priority) ─────────────────────
     # When an agent explicitly self-identifies via the tooli convention,
-    # this is a definitive signal — confidence 1.0, no guessing needed.
+    # this is a definitive signal -- confidence 1.0, no guessing needed.
     tooli_caller = env.get(TOOLI_CALLER, "").strip().lower()
     if tooli_caller:
         display = _TOOLI_CALLER_DISPLAY_NAMES.get(tooli_caller, tooli_caller)
@@ -220,7 +220,7 @@ def _check_env_signatures(env: dict[str, str]) -> list[tuple[str, str, float]]:
         if session_str:
             desc_parts.append(f"session={session_str[:16]}")
         hits.append((display, " ".join(desc_parts), 1.0))
-        # Return immediately — convention-based ID is authoritative
+        # Return immediately -- convention-based ID is authoritative
         return hits
 
     # ── TOOLI_AGENT_MODE (legacy boolean) ──────────────────────────────
@@ -496,7 +496,7 @@ def _check_process_tree() -> list[tuple[str, str, float]]:
         hits.append(("Node.js wrapper", f"Parent process: {name} (typical of VS Code extensions, Claude Code)", 0.5))
 
     if "python" in name and name != os.path.basename(sys.executable).lower():
-        # A *different* Python is our parent — likely an agent runner
+        # A *different* Python is our parent -- likely an agent runner
         hits.append(("Python wrapper", f"Parent process: {name} (likely agent runner)", 0.4))
 
     # ── Human-indicative shells (reduce agent confidence) ──────────────
@@ -588,7 +588,7 @@ def detect_execution_context() -> ExecutionContext:
     the CLI invocation.
 
     When ``TOOLI_CALLER`` is set in the environment, the function returns
-    immediately with confidence 1.0 — no heuristic probing is performed.
+    immediately with confidence 1.0 -- no heuristic probing is performed.
 
     Returns
     -------
@@ -800,7 +800,7 @@ def _format_report(ctx: ExecutionContext) -> str:
         lines.append(f"Session ID:    {ctx.session_id}")
     lines.append("Signals:")
     for s in ctx.signals:
-        lines.append(f"  • {s}")
+        lines.append(f"  - {s}")
     if not ctx.signals:
         lines.append("  (none)")
     return "\n".join(lines)

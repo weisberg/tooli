@@ -102,7 +102,7 @@ def _annotation_description(annotation: Any) -> str:
 
 def _normalize_default(value: Any) -> str:
     if value is inspect.Signature.empty or value is Ellipsis:
-        return "—"
+        return "--"
     if value is None:
         return "`None`"
     if isinstance(value, bool):
@@ -538,7 +538,7 @@ class SkillGenerator:
                     f"`${_readable_type(annotation)}` | "
                     f"{'Yes' if _is_required_param(default) else 'No'} | "
                     f"`{_normalize_default(default)}` | "
-                    f"{description or '—'} |"
+                    f"{description or '--'} |"
                 )
             lines.append("")
 

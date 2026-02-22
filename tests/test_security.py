@@ -104,3 +104,22 @@ def test_security_policy_constructor_overrides_env(monkeypatch: object) -> None:
     denied = CliRunner().invoke(app, ["wipe", "--text"])
     assert denied.exit_code == 0
     assert denied.output.strip() == "removed"
+
+
+def test_sanitizer_preserves_generic_type_syntax() -> None:
+    """Backtick-quoted generic types like `StdinOr[T]` must not be redacted."""
+    from tooli.security.sanitizer import sanitize_text
+
+    assert sanitize_text("`StdinOr[T]`") == "`StdinOr[T]`"
+    assert sanitize_text("`SecretInput[str]`") == "`SecretInput[str]`"
+    assert sanitize_text("## StdinOr[T]") == "## StdinOr[T]"
+
+
+def test_sanitizer_still_blocks_injection() -> None:
+    """Shell injection patterns should still be redacted."""
+    from tooli.security.sanitizer import sanitize_text
+
+    assert "$(" not in sanitize_text("$(rm -rf /)")
+    assert "${" not in sanitize_text("${HOME}")
+    assert ">(" not in sanitize_text(">(cat /etc/passwd)")
+    assert "<(" not in sanitize_text("<(ls)")

@@ -139,7 +139,7 @@ def test_generate_skill_default_format_is_claude_skill(tmp_path: Path) -> None:
 
     runner = CliRunner()
     path = tmp_path / "default-doc.md"
-    result = runner.invoke(app, ["generate-skill", "--output", str(path)])
+    result = runner.invoke(app, ["generate-skill", "--output-path", str(path)])
     assert result.exit_code == 0
     content = path.read_text(encoding="utf-8")
     assert content.startswith("---")

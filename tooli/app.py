@@ -91,7 +91,7 @@ class Tooli(typer.Typer):
 
     Tooli wraps Typer to produce CLI tools that are simultaneously
     human-friendly and machine-consumable by AI agents. The public API
-    is Tooli-native — Typer is an implementation detail.
+    is Tooli-native -- Typer is an implementation detail.
     """
 
     def __init__(
@@ -389,7 +389,7 @@ class Tooli(typer.Typer):
         If the command function is a coroutine, it is awaited directly.
         Otherwise the synchronous function is run via ``asyncio.to_thread()``.
 
-        Returns a ``TooliResult`` — same type and semantics as ``call()``.
+        Returns a ``TooliResult`` -- same type and semantics as ``call()``.
         """
         import asyncio
         import inspect as _inspect
@@ -405,10 +405,10 @@ class Tooli(typer.Typer):
                 break
 
         if callback is not None and _inspect.iscoroutinefunction(callback):
-            # Async command — call() internals but with await
+            # Async command -- call() internals but with await
             return await self._acall_async(command_name, callback, **kwargs)
 
-        # Sync command — delegate to call() in a thread
+        # Sync command -- delegate to call() in a thread
         return await asyncio.to_thread(self.call, command_name, **kwargs)
 
     async def _acall_async(self, command_name: str, callback: Any, **kwargs: Any) -> Any:
@@ -626,7 +626,6 @@ class Tooli(typer.Typer):
             output_path: str | None = typer.Option(
                 "SKILL.md",
                 "--output-path",
-                "--output",
                 help="Output file path",
             ),
             detail_level: str = typer.Option(
@@ -716,7 +715,6 @@ class Tooli(typer.Typer):
             output_path: str | None = typer.Option(
                 "AGENTS.md",
                 "--output-path",
-                "--output",
                 help="Output file path",
             ),
         ) -> None:
@@ -760,7 +758,7 @@ class Tooli(typer.Typer):
 
         @self.command(name="generate-claude-md", cls=typer.main.TyperCommand, hidden=True)  # type: ignore[untyped-decorator]
         def generate_claude_md_command(
-            output_path: str = typer.Option("CLAUDE.md", "--output-path", "--output", help="Output file path"),
+            output_path: str = typer.Option("CLAUDE.md", "--output-path", help="Output file path"),
         ) -> None:
             """Generate CLAUDE.md for this application.
 
