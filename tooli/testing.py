@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from typer.testing import CliRunner, Result  # type: ignore[attr-defined]
+try:
+    from typer.testing import CliRunner, Result  # type: ignore[attr-defined]
+except ModuleNotFoundError:  # pragma: no cover
+    from click.testing import CliRunner, Result
 
-from tooli.app import Tooli  # noqa: TC001
+from tooli import Tooli  # noqa: TC001
 
 
 class TooliTestClient:

@@ -154,7 +154,7 @@ class TestManifestCallerConvention:
 class TestRecorderCallerFields:
 
     def test_invocation_record_with_caller(self):
-        from tooli.eval.recorder import SCHEMA_VERSION, InvocationRecord
+        from tooli.recorder import SCHEMA_VERSION, InvocationRecord
         record = InvocationRecord(
             schema_version=SCHEMA_VERSION,
             recorded_at="2026-01-01T00:00:00Z",
@@ -173,7 +173,7 @@ class TestRecorderCallerFields:
         assert d["schema_version"] == 2
 
     def test_invocation_record_without_caller(self):
-        from tooli.eval.recorder import SCHEMA_VERSION, InvocationRecord
+        from tooli.recorder import SCHEMA_VERSION, InvocationRecord
         record = InvocationRecord(
             schema_version=SCHEMA_VERSION,
             recorded_at="2026-01-01T00:00:00Z",

@@ -2,7 +2,7 @@
 
 ## Quick Reference
 
-- **Version**: 5.0.0
+- **Version**: 6.5.0
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory

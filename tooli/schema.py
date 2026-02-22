@@ -23,6 +23,7 @@ class ToolSchema(BaseModel):
     examples: list[dict[str, Any]] = Field(default_factory=list)
     deprecated: bool = False
     deprecated_message: str | None = None
+    deprecated_version: str | None = None
     capabilities: list[str] = Field(default_factory=list)
     handoffs: list[dict[str, str]] = Field(default_factory=list)
     delegation_hint: str | None = None
@@ -161,6 +162,7 @@ def generate_tool_schema(
         version=meta.version,
         deprecated=meta.deprecated,
         deprecated_message=meta.deprecated_message,
+        deprecated_version=meta.deprecated_version,
         auth=required_scopes or list(meta.auth),
         capabilities=list(meta.capabilities),
         handoffs=list(meta.handoffs),
