@@ -26,9 +26,9 @@ Tooli treats the CLI as a **structured protocol** rather than a text interface. 
 
 ---
 
-## Current State (v6.5.0)
+## Current State (v6.6.0)
 
-Tooli v6.5.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with 529+ tests passing across Python 3.10+.
+Tooli v6.6.0 is production-ready and published on [PyPI](https://pypi.org/project/tooli/). The framework implements the complete feature set defined in its PRDs, with a growing test suite across Python 3.10+.
 
 ### What ships today
 
@@ -82,7 +82,7 @@ from pathlib import Path
 app = Tooli(
     name="file-tools",
     description="File manipulation utilities",
-    version="6.5.0",
+    version="6.6.0",
 )
 
 @app.command(
@@ -129,7 +129,7 @@ $ file-tools find-files "*.py" --root ./src --json
     {"path": "src/main.py", "size": 1204},
     {"path": "src/utils.py", "size": 892}
   ],
-  "meta": {"tool": "file-tools.find-files", "version": "6.5.0", "duration_ms": 34}
+  "meta": {"tool": "file-tools.find-files", "version": "6.6.0", "duration_ms": 34}
 }
 ```
 
@@ -281,7 +281,7 @@ Useful validation and automation flows:
 - Use `tooli-docs ... --from-schema schema.json` for schema-driven docs.
 - Use CI assertions around envelope shape (`ok/result/meta`) and error codes.
 
-Migration guidance: see [`MIGRATION_GUIDE_v4.md`](MIGRATION_GUIDE_v4.md) (v3 to v4) or [`MIGRATION_GUIDE_v3.md`](MIGRATION_GUIDE_v3.md) (v2 to v3).
+Migration guidance: see [`MIGRATION_v5_to_v6.md`](docs/MIGRATION_v5_to_v6.md) (v5 to v6). Older guides are archived under [`docs/archive/migration/`](docs/archive/migration/).
 
 ---
 
@@ -355,7 +355,8 @@ See the [examples README](examples/README.md) for the full list of 18 apps and u
 
 ## Version History
 
-- **v6.5.0** (current) -- latest stable v6 release line with core cleanup, extraction follow-through, and ongoing reliability improvements.
+- **v6.6.0** (current) -- bug-fix release: CLI crash on `T | None` params, restored triggers/anti_triggers/rules metadata (#202, #203).
+- **v6.5.0** -- v6 release line with core cleanup, extraction follow-through, and reliability improvements.
 - **v6.0** -- extraction and cleanup release. Docs and export generation moved to external packages (`tooli-docs`, `tooli-export`); deprecated internal shims removed.
 - **v5.0** -- Universal Agent Tool Interface. Added Python API, capabilities, handoff metadata, and AGENTS.md generation.
 - **v4.1** -- Caller-Aware Agent Runtime. `TOOLI_CALLER` convention, 5-category heuristic detection, `detect-context` builtin, caller metadata in envelope/telemetry/recordings, adaptive confirmation and help formatting.
@@ -363,7 +364,7 @@ See the [examples README](examples/README.md) for the full list of 18 apps and u
 - **v2.0** -- Agent-Environment Interface. MCP bridge, orchestration runtime, deferred discovery, token budgets, Python eval mode.
 - **v1.0** -- Core framework. Dual-mode output, structured errors, JSON Schema, MCP server, annotations, pagination, observability.
 
-See [CHANGELOG.md](CHANGELOG.md) for full details and [MIGRATION_GUIDE_v4.md](MIGRATION_GUIDE_v4.md) for upgrade steps.
+See [CHANGELOG.md](CHANGELOG.md) for full details and [docs/MIGRATION_v5_to_v6.md](docs/MIGRATION_v5_to_v6.md) for the latest upgrade steps.
 
 ---
 

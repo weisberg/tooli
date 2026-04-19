@@ -1,6 +1,6 @@
 # Cookbook: Migrating from Typer
 
-Tooli v6.5.0 no longer uses backend switching. Migrate Typer-style command code to Tooli-native command definitions.
+Tooli v6.6.0 no longer uses backend switching. Migrate Typer-style command code to Tooli-native command definitions.
 
 ## Before
 
@@ -13,7 +13,7 @@ app = typer.Typer()
 
 ```python
 from tooli import Tooli
-app = Tooli(name="mytool", version="6.5.0")
+app = Tooli(name="mytool", version="6.6.0")
 ```
 
 ## Parameter metadata

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.6.0] - 2026-04-19
+
+### Fixed
+- CLI crash on `T | None` parameter types (#202).
+- Restored `triggers`, `anti_triggers`, and `rules` metadata rendering (#203).
+
 ## [6.5.0] - 2026-02-22
 
 ### Changed
@@ -176,6 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation generation: SKILL.md, llms.txt, Unix man pages
 - 9 example apps: note_indexer, docq, gitsum, csvkit_t, syswatch, taskr, proj, envar, imgsort
 
+[6.6.0]: https://github.com/weisberg/tooli/releases/tag/v6.6.0
 [6.5.0]: https://github.com/weisberg/tooli/releases/tag/v6.5.0
 [5.0.1]: https://github.com/weisberg/tooli/releases/tag/v5.0.1
 [5.0.0]: https://github.com/weisberg/tooli/releases/tag/v5.0.0

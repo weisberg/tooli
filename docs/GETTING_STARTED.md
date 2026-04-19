@@ -13,7 +13,7 @@ pip install tooli
 ```python
 from tooli import Tooli, Annotated, Argument, Option
 
-app = Tooli(name="files", version="6.5.0")
+app = Tooli(name="files", version="6.6.0")
 
 @app.command()
 def find(
