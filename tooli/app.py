@@ -13,7 +13,6 @@ import typer
 from typer.main import TyperGroup  # type: ignore[attr-defined]
 
 from tooli.auth import AuthContext
-from tooli.backends.native import translate_marker
 from tooli.command import TooliCommand, _emit_parser_error, _is_agent_mode
 from tooli.command_meta import CommandMeta, PromptMeta, ResourceMeta, get_command_meta
 from tooli.recorder import build_invocation_recorder
@@ -838,21 +837,6 @@ class Tooli(typer.Typer):
         kwargs.setdefault("cls", TooliCommand)
         kwargs.setdefault("deprecated", deprecated)
 
-        def _normalize_backend_metadata(annotation: Any) -> Any:
-            if get_origin(annotation) is not Annotated:
-                return annotation
-
-            args = get_args(annotation)
-            if len(args) <= 1:
-                return annotation
-
-            base_annotation = args[0]
-            translated = [base_annotation]
-            for marker in args[1:]:
-                translated.append(translate_marker(marker))
-
-            return Annotated[tuple(translated)] if len(translated) != 2 else Annotated[base_annotation, translated[1]]
-
         def _configure_callback(func: Any) -> None:
             # Preserve SecretInput markers for prompt/hidden-value redaction while
             # normalizing annotations for Typer argument parsing.
@@ -862,7 +846,6 @@ class Tooli(typer.Typer):
             except Exception:
                 annotations_by_param = dict(func.__annotations__)
             for param_name, raw_annotation in annotations_by_param.items():
-                annotations_by_param[param_name] = _normalize_backend_metadata(raw_annotation)
                 if not is_secret_input(raw_annotation):
                     continue
 

@@ -6,7 +6,7 @@
 - **Language**: Python 3.10+
 - **Framework**: Typer (CLI) + Pydantic (schemas) + Rich (output)
 - **Package**: `tooli/` directory
-- **Tests**: `tests/` directory (~205 tests across 46 files)
+- **Tests**: `tests/` directory (576 tests across 46 files; ~17 stale failures for v6-removed features)
 - **Examples**: `examples/` directory (18 complete apps)
 
 ## Commands
