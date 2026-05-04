@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "crates/tooli",
+    "crates/tooli-macros",
+    "examples/file_tools",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/weisberg/tooli"
+rust-version = "1.78"
+
+[workspace.dependencies]
+assert_cmd = "2"
+clap = { version = "4.5", features = ["derive", "env"] }
+predicates = "3"
+proc-macro2 = "1"
+quote = "1"
+schemars = { version = "0.8", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syn = { version = "2", features = ["full"] }
+thiserror = "1"

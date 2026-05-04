@@ -1,0 +1,20 @@
+[package]
+name = "tooli"
+version = "0.1.0-alpha.3"
+description = "A lean Rust crate for building agent-friendly CLI tools"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tooli-macros = { version = "0.1.0-alpha.3", path = "../tooli-macros" }
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
