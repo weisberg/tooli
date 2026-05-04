@@ -1,0 +1,18 @@
+[package]
+name = "file_tools"
+version = "0.1.0"
+description = "Example Tooli Rust CLI for finding files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+schemars.workspace = true
+serde.workspace = true
+tooli = { path = "../../crates/tooli" }
+
+[dev-dependencies]
+assert_cmd.workspace = true
+serde_json.workspace = true
